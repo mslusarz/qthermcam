@@ -5,22 +5,21 @@
 
 class QPushButton;
 class QSocketNotifier;
+class QLineEdit;
 
 class MainWin : public QMainWindow
 {
 	Q_OBJECT
 	QPushButton *connectButton, *disconnectButton;
+	QLineEdit *pathEdit;
 	int fd;
 	QSocketNotifier *notifier;
-	const char *addr;
-	void handleEvent(QKeyEvent *);
 	void sendCommand(char cmd);
 
 	public:
-	MainWin(const char *addr);
+	MainWin(QString path);
 
-	virtual void keyPressEvent(QKeyEvent * event);
-	virtual void keyReleaseEvent(QKeyEvent * event);
+	bool eventFilter(QObject *obj, QEvent *event);
 
 	public slots:
 	void doConnect();

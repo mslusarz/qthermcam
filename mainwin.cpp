@@ -4,32 +4,44 @@
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QSocketNotifier>
+#include <QLineEdit>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 
-MainWin::MainWin(const char *_addr) : QMainWindow(), fd(-1), notifier(NULL), addr(_addr)
+MainWin::MainWin(QString path) : QMainWindow(), fd(-1), notifier(NULL)
 {
-	if (!addr)
-		addr = "/dev/ttyACM0";
-	QWidget *w = new QWidget(this);
-	setCentralWidget(w);
-	connectButton = new QPushButton("connect");
-	disconnectButton = new QPushButton("disconnect");
+	QWidget *central = new QWidget(this);
+	setCentralWidget(central);
+	pathEdit = new QLineEdit(path, central);
+	pathEdit->installEventFilter(this);
+	QVBoxLayout *centralLay = new QVBoxLayout();
+	centralLay->addWidget(pathEdit);
+
+	QWidget *buttons = new QWidget(central);
+	connectButton = new QPushButton("connect", buttons);
+	disconnectButton = new QPushButton("disconnect", buttons);
 	disconnectButton->setEnabled(false);
+	connectButton->installEventFilter(this);
+	disconnectButton->installEventFilter(this);
+
 	connect(connectButton,    SIGNAL(clicked()), this, SLOT(doConnect()));
 	connect(disconnectButton, SIGNAL(clicked()), this, SLOT(doDisconnect()));
-	QHBoxLayout *lay = new QHBoxLayout();
-	lay->addWidget(connectButton);
-	lay->addWidget(disconnectButton);
-	w->setLayout(lay);
+
+	QHBoxLayout *buttonsLay = new QHBoxLayout();
+	buttonsLay->addWidget(connectButton);
+	buttonsLay->addWidget(disconnectButton);
+	buttons->setLayout(buttonsLay);
+
+	centralLay->addWidget(buttons);
+	central->setLayout(centralLay);
 }
 
 void MainWin::doConnect()
 {
-	fd = open(addr, O_RDWR);
+	fd = open(pathEdit->text().toLocal8Bit().constData(), O_RDWR);
 	if (fd == -1)
 	{
 		perror("open");
@@ -40,6 +52,7 @@ void MainWin::doConnect()
 
 	connectButton->setEnabled(false);
 	disconnectButton->setEnabled(true);
+	pathEdit->setEnabled(false);
 }
 
 void MainWin::doDisconnect()
@@ -51,6 +64,7 @@ void MainWin::doDisconnect()
 
 	connectButton->setEnabled(true);
 	disconnectButton->setEnabled(false);
+	pathEdit->setEnabled(true);
 }
 
 void MainWin::fdActivated(int)
@@ -72,38 +86,29 @@ void MainWin::sendCommand(char cmd)
 		printf("command '%c' sent: %d\n", cmd, r);
 }
 
-void MainWin::handleEvent(QKeyEvent *event)
+bool MainWin::eventFilter(QObject *obj, QEvent *_event)
 {
-	if (fd == -1)
-		return;
+	if (fd != -1 && _event->type() == QEvent::KeyPress)
+	{
+		QKeyEvent *event = static_cast<QKeyEvent *>(_event);
+		if (event->modifiers() & Qt::ShiftModifier)
+			sendCommand('9');
+		else if (event->modifiers() & Qt::ControlModifier)
+			sendCommand('1');
+		else if (event->modifiers() & Qt::AltModifier)
+			sendCommand('x');
 
-	if (event->modifiers() & Qt::ShiftModifier)
-		sendCommand('9');
-	else if (event->modifiers() & Qt::ControlModifier)
-		sendCommand('1');
-	else if (event->modifiers() & Qt::AltModifier)
-		sendCommand('x');
-
-	if (event->key() == Qt::Key_Up)
-		sendCommand('u');
-	else if (event->key() == Qt::Key_Down)
-		sendCommand('d');
-	else if (event->key() == Qt::Key_Left)
-		sendCommand('l');
-	else if (event->key() == Qt::Key_Right)
-		sendCommand('r');
-	else if (event->key() == Qt::Key_Space)
-		sendCommand('t');
+		if (event->key() == Qt::Key_Up)
+			sendCommand('u');
+		else if (event->key() == Qt::Key_Down)
+			sendCommand('d');
+		else if (event->key() == Qt::Key_Left)
+			sendCommand('l');
+		else if (event->key() == Qt::Key_Right)
+			sendCommand('r');
+		else if (event->key() == Qt::Key_Space)
+			sendCommand('t');
+		return true;
+	}
+	return QObject::eventFilter(obj, _event);
 }
-
-void MainWin::keyPressEvent(QKeyEvent *event)
-{
-	handleEvent(event);
-	QMainWindow::keyPressEvent(event);
-}
-
-void MainWin::keyReleaseEvent(QKeyEvent *event)
-{
-	QMainWindow::keyReleaseEvent(event);
-}
-
