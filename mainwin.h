@@ -6,15 +6,19 @@
 class QPushButton;
 class QSocketNotifier;
 class QLineEdit;
+class QTextEdit;
 
 class MainWin : public QMainWindow
 {
 	Q_OBJECT
 	QPushButton *connectButton, *disconnectButton;
 	QLineEdit *pathEdit;
+	QTextEdit *textEdit;
 	int fd;
 	QSocketNotifier *notifier;
 	void sendCommand(char cmd);
+	void log(const QString &txt);
+	QByteArray buffer;
 
 	public:
 	MainWin(QString path);

@@ -5,11 +5,13 @@
 #include <QKeyEvent>
 #include <QSocketNotifier>
 #include <QLineEdit>
+#include <QTextEdit>
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
 
 MainWin::MainWin(QString path) : QMainWindow(), fd(-1), notifier(NULL)
 {
@@ -36,17 +38,31 @@ MainWin::MainWin(QString path) : QMainWindow(), fd(-1), notifier(NULL)
 	buttons->setLayout(buttonsLay);
 
 	centralLay->addWidget(buttons);
+
+	textEdit = new QTextEdit(central);
+	textEdit->setReadOnly(true);
+	textEdit->installEventFilter(this);
+	centralLay->addWidget(textEdit);
+
 	central->setLayout(centralLay);
+}
+
+void MainWin::log(const QString &txt)
+{
+	textEdit->append(txt);
 }
 
 void MainWin::doConnect()
 {
-	fd = open(pathEdit->text().toLocal8Bit().constData(), O_RDWR);
+	QString path = pathEdit->text();
+	fd = open(path.toLocal8Bit().constData(), O_RDWR);
 	if (fd == -1)
 	{
-		perror("open");
+		log(path + ": " + QString(strerror(errno)));
 		return;
 	}
+	log(path + ": connected");
+
 	notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
 	connect(notifier, SIGNAL(activated(int)), this, SLOT(fdActivated(int)));
 
@@ -65,6 +81,8 @@ void MainWin::doDisconnect()
 	connectButton->setEnabled(true);
 	disconnectButton->setEnabled(false);
 	pathEdit->setEnabled(true);
+
+	log(pathEdit->text() + ": disconnected");
 }
 
 void MainWin::fdActivated(int)
@@ -72,18 +90,26 @@ void MainWin::fdActivated(int)
 	char c;
 	int r = read(fd, &c, 1);
 	if (r == 1)
-		printf("%c", c);
+	{
+		if (c == '\n')
+		{
+			log("line: " + QString(buffer));
+			buffer.truncate(0);
+		}
+		else if (c != '\r')
+			buffer.append(c);
+	}
 }
 
 void MainWin::sendCommand(char cmd)
 {
 	int r = write(fd, &cmd, 1);
 	if (r == 0)
-		fprintf(stderr, "huh?\n");
+		log("cannot send command");
 	else if (r < 0)
-		perror("write");
+		log("write: " + QString(strerror(errno)));
 	else
-		printf("command '%c' sent: %d\n", cmd, r);
+		log(QString("command '%1' sent: %2").arg(cmd).arg(r));
 }
 
 bool MainWin::eventFilter(QObject *obj, QEvent *_event)
