@@ -6,6 +6,8 @@
 #include <QSocketNotifier>
 #include <QLineEdit>
 #include <QTextEdit>
+#include <QDesktopWidget>
+#include <QRect>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -45,6 +47,9 @@ MainWin::MainWin(QString path) : QMainWindow(), fd(-1), notifier(NULL)
 	centralLay->addWidget(textEdit);
 
 	central->setLayout(centralLay);
+
+	QRect deskRect = QDesktopWidget().screenGeometry();
+	setGeometry(100, 100, deskRect.width() - 200, deskRect.height() - 200);
 }
 
 void MainWin::log(const QString &txt)
