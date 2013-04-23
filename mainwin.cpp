@@ -122,11 +122,12 @@ bool MainWin::eventFilter(QObject *obj, QEvent *_event)
 	if (fd != -1 && _event->type() == QEvent::KeyPress)
 	{
 		QKeyEvent *event = static_cast<QKeyEvent *>(_event);
-		if (event->modifiers() & Qt::ShiftModifier)
+
+		if ((event->modifiers() & Qt::ShiftModifier) && event->key() != Qt::Key_Shift)
 			sendCommand('9');
-		else if (event->modifiers() & Qt::ControlModifier)
+		else if ((event->modifiers() & Qt::ControlModifier) && event->key() != Qt::Key_Control)
 			sendCommand('1');
-		else if (event->modifiers() & Qt::AltModifier)
+		else if ((event->modifiers() & Qt::AltModifier) && event->key() != Qt::Key_Alt)
 			sendCommand('x');
 
 		if (event->key() == Qt::Key_Up)
