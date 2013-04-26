@@ -8,6 +8,7 @@
 #include <QTextEdit>
 #include <QDesktopWidget>
 #include <QRect>
+#include <QStatusBar>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -15,7 +16,8 @@
 #include <unistd.h>
 #include <errno.h>
 
-MainWin::MainWin(QString path) : QMainWindow(), fd(-1), notifier(NULL)
+MainWin::MainWin(QString path) : QMainWindow(), fd(-1), notifier(NULL), min_x(90), max_x(90), min_y(90), max_y(90),
+		x(90), y(90), temp_object(-1000), temp_ambient(-1000)
 {
 	QWidget *central = new QWidget(this);
 	setCentralWidget(central);
@@ -46,6 +48,8 @@ MainWin::MainWin(QString path) : QMainWindow(), fd(-1), notifier(NULL)
 	textEdit->installEventFilter(this);
 	centralLay->addWidget(textEdit);
 
+	setStatusBar(new QStatusBar());
+
 	central->setLayout(centralLay);
 
 	QRect deskRect = QDesktopWidget().screenGeometry();
@@ -67,6 +71,7 @@ void MainWin::doConnect()
 		return;
 	}
 	log(path + ": connected");
+	statusBar()->showMessage("connected");
 
 	notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
 	connect(notifier, SIGNAL(activated(int)), this, SLOT(fdActivated(int)));
@@ -88,6 +93,13 @@ void MainWin::doDisconnect()
 	pathEdit->setEnabled(true);
 
 	log(pathEdit->text() + ": disconnected");
+	statusBar()->showMessage("disconnected");
+}
+
+void MainWin::resetStatusBar()
+{
+	statusBar()->showMessage(QString("x: %1, y: %2, object: %3, ambient: %4")
+			.arg(x).arg(y).arg(temp_object).arg(temp_ambient));
 }
 
 void MainWin::fdActivated(int)
@@ -98,7 +110,56 @@ void MainWin::fdActivated(int)
 	{
 		if (c == '\n')
 		{
-			log("line: " + QString(buffer));
+			QString msg = QString(buffer);
+			if (!msg.startsWith("I") && !msg.startsWith("E"))
+				log("next message has invalid format!");
+			else if (msg.startsWith("Idims:"))
+			{
+				QStringList dims = msg.split(":").takeLast().split(",");
+				min_x = dims[0].toInt();
+				max_x = dims[1].toInt();
+				min_y = dims[2].toInt();
+				max_y = dims[3].toInt();
+			}
+			else if (msg.startsWith("Ix: "))
+			{
+				bool ok;
+				int tmpx = msg.mid(3).toInt(&ok);
+				if (ok)
+					x = tmpx;
+				resetStatusBar();
+			}
+			else if (msg.startsWith("Iy: "))
+			{
+				bool ok;
+				int tmpy = msg.mid(3).toInt(&ok);
+				if (ok)
+					y = tmpy;
+				resetStatusBar();
+			}
+			else if (msg.startsWith("Itemp "))
+			{
+				bool ok;
+				QString t = msg.mid(6);
+				QStringList tt = t.split(":");
+
+				float temp = tt[1].toFloat(&ok);
+				if (ok)
+				{
+					if (tt[0] == QString("object"))
+						temp_object = temp;
+					else if (tt[0] == QString("ambient"))
+						temp_ambient = temp;
+					resetStatusBar();
+				}
+				else
+					log("invalid temp format");
+			}
+			else if (msg.startsWith("Isetup finished"))
+			{
+				sendCommand("px90!py90!t!");
+			}
+			log("line: " + msg);
 			buffer.truncate(0);
 		}
 		else if (c != '\r')
@@ -106,9 +167,9 @@ void MainWin::fdActivated(int)
 	}
 }
 
-void MainWin::sendCommand(char cmd)
+void MainWin::sendCommand(QString cmd)
 {
-	int r = write(fd, &cmd, 1);
+	int r = write(fd, cmd.toAscii().constData(), cmd.length());
 	if (r == 0)
 		log("cannot send command");
 	else if (r < 0)
@@ -117,29 +178,48 @@ void MainWin::sendCommand(char cmd)
 		log(QString("command '%1' sent: %2").arg(cmd).arg(r));
 }
 
+void MainWin::moveX(int newPos)
+{
+	if (newPos < min_x)
+		newPos = min_x;
+	if (newPos > max_x)
+		newPos = max_x;
+	sendCommand(QString("px%1!").arg(newPos));
+}
+
+void MainWin::moveY(int newPos)
+{
+	if (newPos < min_y)
+		newPos = min_y;
+	if (newPos > max_y)
+		newPos = max_y;
+	sendCommand(QString("py%1!").arg(newPos));
+}
+
 bool MainWin::eventFilter(QObject *obj, QEvent *_event)
 {
 	if (fd != -1 && _event->type() == QEvent::KeyPress)
 	{
 		QKeyEvent *event = static_cast<QKeyEvent *>(_event);
+		int speed = 10;
 
 		if ((event->modifiers() & Qt::ShiftModifier) && event->key() != Qt::Key_Shift)
-			sendCommand('9');
+			speed = 20;
 		else if ((event->modifiers() & Qt::ControlModifier) && event->key() != Qt::Key_Control)
-			sendCommand('1');
+			speed = 1;
 		else if ((event->modifiers() & Qt::AltModifier) && event->key() != Qt::Key_Alt)
-			sendCommand('x');
+			speed = 180;
 
 		if (event->key() == Qt::Key_Up)
-			sendCommand('u');
+			moveY(y + speed);
 		else if (event->key() == Qt::Key_Down)
-			sendCommand('d');
+			moveY(y - speed);
 		else if (event->key() == Qt::Key_Left)
-			sendCommand('l');
+			moveX(x - speed);
 		else if (event->key() == Qt::Key_Right)
-			sendCommand('r');
+			moveX(x + speed);
 		else if (event->key() == Qt::Key_Space)
-			sendCommand('t');
+			sendCommand("t!");
 		return true;
 	}
 	return QObject::eventFilter(obj, _event);
