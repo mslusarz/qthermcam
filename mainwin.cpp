@@ -21,7 +21,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-MainWin::MainWin(QString path) : QMainWindow(), fd(-1), notifier(NULL), min_x(90), max_x(90), min_y(90), max_y(90),
+MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NULL), min_x(90), max_x(90), min_y(90), max_y(90),
 		x(90), y(90), temp_object(-1000), temp_ambient(-1000), scanInProgress(false), values(NULL), curMin(0),
 		curMax(0), image(NULL)
 {
@@ -375,6 +375,11 @@ void MainWin::scanImage()
 		image->fill(QColor(0, 0, 0));
 	}
 
+	minX->setEnabled(false);
+	maxX->setEnabled(false);
+	minY->setEnabled(false);
+	maxY->setEnabled(false);
+
 	moveY(minY->value());
 	moveX(minX->value());
 	readObjectTemp();
@@ -392,5 +397,13 @@ void MainWin::stopScanning()
 
 	connect(scanButton, SIGNAL(clicked()), this, SLOT(scanImage()));
 	scanButton->setText("scan image");
+
+	if (minX)
+	{
+		minX->setEnabled(true);
+		maxX->setEnabled(true);
+		minY->setEnabled(true);
+		maxY->setEnabled(true);
+	}
 }
 
