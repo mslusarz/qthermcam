@@ -1,5 +1,6 @@
 .cproject
 .project
+.settings
 .tmp
 Makefile
 qthermcam
