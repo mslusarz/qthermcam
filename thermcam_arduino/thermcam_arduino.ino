@@ -185,7 +185,7 @@ void loop()
 
       if (sscanf(command + 2, "%d", &offset) != 1)
       {
-        Serial.println("Einvalid format");
+        Serial.println("Einvalid p format");
         return;
       }
 
@@ -199,18 +199,35 @@ void loop()
       break;
     case 't':
     {
-      double object_temp, ambient_temp;
+      enum sensor s;
+      double temp;
 
-      if (!read_temp(object, &object_temp))
+      if (len < 2)
+      {
+        Serial.println("Etoo short t command");
+        return;
+      }
+
+      if (command[1] == 'o')
+        s = object;
+      else if (command[1] == 'a')
+        s = ambient;
+      else
+      {
+        Serial.println("Einvalid sensor");
+        return;
+      }
+
+//      delay(50);
+      if (!read_temp(s, &temp))
         return;
 
-      if (!read_temp(ambient, &ambient_temp))
-        return;
- 
-      Serial.print("Itemp object: ");
-      Serial.println(object_temp);
-      Serial.print("Itemp ambient: ");
-      Serial.println(ambient_temp);
+      if (command[1] == 'o')
+        Serial.print("Itemp object: ");
+      else if (command[1] == 'a')
+        Serial.print("Itemp ambient: ");
+
+      Serial.println(temp);
  
       break;
     }
