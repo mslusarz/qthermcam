@@ -36,11 +36,11 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 
 	QWidget *buttons = new QWidget(central);
 
-	connectionButton = new QPushButton("connect", buttons);
+	connectionButton = new QPushButton("Connect to device", buttons);
 	connectionButton->installEventFilter(this);
 	connect(connectionButton,    SIGNAL(clicked()), this, SLOT(doConnect()));
 
-	QPushButton *clearButton = new QPushButton("clear", buttons);
+	QPushButton *clearButton = new QPushButton("Clear log", buttons);
 	connect(clearButton, SIGNAL(clicked()), this, SLOT(clearLog()));
 
 	scanButton = new QPushButton(buttons);
@@ -49,23 +49,23 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 	stopScanning();
 
 	minX = new QSpinBox(buttons);
-	minX->setPrefix("min x: ");
+	minX->setPrefix("Min x: ");
 	minX->setRange(0, 180);
 	minX->setEnabled(false);
 
 	maxX = new QSpinBox(buttons);
-	maxX->setPrefix("max x: ");
+	maxX->setPrefix("Max x: ");
 	maxX->setRange(0, 180);
 	maxX->setValue(180);
 	maxX->setEnabled(false);
 
 	minY = new QSpinBox(buttons);
-	minY->setPrefix("min y: ");
+	minY->setPrefix("Min y: ");
 	minY->setRange(0, 180);
 	minY->setEnabled(false);
 
 	maxY = new QSpinBox(buttons);
-	maxY->setPrefix("max y: ");
+	maxY->setPrefix("Max y: ");
 	maxY->setRange(0, 180);
 	maxY->setValue(180);
 	maxY->setEnabled(false);
@@ -131,7 +131,7 @@ void MainWin::doConnect()
 	notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
 	connect(notifier, SIGNAL(activated(int)), this, SLOT(fdActivated(int)));
 
-	connectionButton->setText("disconnect");
+	connectionButton->setText("Disconnect from device");
 	disconnect(connectionButton, SIGNAL(clicked()), this, SLOT(doConnect()));
 	connect(connectionButton, SIGNAL(clicked()), this, SLOT(doDisconnect()));
 
@@ -151,7 +151,7 @@ void MainWin::doDisconnect()
 	::close(fd);
 	fd = -1;
 
-	connectionButton->setText("connect");
+	connectionButton->setText("Connect to device");
 	disconnect(connectionButton, SIGNAL(clicked()), this, SLOT(doDisconnect()));
 	connect(connectionButton, SIGNAL(clicked()), this, SLOT(doConnect()));
 
@@ -408,7 +408,7 @@ void MainWin::scanImage()
 	readObjectTemp();
 
 	disconnect(scanButton, SIGNAL(clicked()), this, SLOT(scanImage()));
-	scanButton->setText("stop scanning");
+	scanButton->setText("Stop scanning");
 	connect(scanButton, SIGNAL(clicked()), this, SLOT(stopScanning()));
 	connectionButton->setEnabled(false);
 
@@ -421,7 +421,7 @@ void MainWin::stopScanning()
 
 	connectionButton->setEnabled(true);
 	connect(scanButton, SIGNAL(clicked()), this, SLOT(scanImage()));
-	scanButton->setText("scan image");
+	scanButton->setText("Scan image");
 	if (splitter)
 		splitter->setCollapsible(1, true);
 	if (imageLabel)
