@@ -46,10 +46,10 @@ MainWin::MainWin(QString path) : QMainWindow(), fd(-1), notifier(NULL), min_x(90
 	QPushButton *clearButton = new QPushButton("clear", buttons);
 	connect(clearButton, SIGNAL(clicked()), this, SLOT(clearLog()));
 
-	scanButton = new QPushButton("scan image", buttons);
+	scanButton = new QPushButton(buttons);
 	scanButton->setEnabled(false);
 	scanButton->installEventFilter(this);
-	connect(scanButton, SIGNAL(clicked()), this, SLOT(scanImage()));
+	stopScanning();
 
 	minX = new QSpinBox(buttons);
 	minX->setPrefix("min x: ");
@@ -256,9 +256,7 @@ void MainWin::fdActivated(int)
 							imageLabel->setPixmap(QPixmap::fromImage(*image).scaledToWidth(imageLabel->width()));
 
 							if (y == maxY->value())
-							{
-								scanInProgress = false;
-							}
+								stopScanning();
 							else
 							{
 								moveY(y + 1);
@@ -380,6 +378,19 @@ void MainWin::scanImage()
 	moveY(minY->value());
 	moveX(minX->value());
 	readObjectTemp();
+
+	disconnect(scanButton, SIGNAL(clicked()), this, SLOT(scanImage()));
+	scanButton->setText("stop scanning");
+	connect(scanButton, SIGNAL(clicked()), this, SLOT(stopScanning()));
+
 	scanInProgress = true;
+}
+
+void MainWin::stopScanning()
+{
+	scanInProgress = false;
+
+	connect(scanButton, SIGNAL(clicked()), this, SLOT(scanImage()));
+	scanButton->setText("scan image");
 }
 

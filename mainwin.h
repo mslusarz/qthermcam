@@ -48,6 +48,7 @@ class MainWin : public QMainWindow
 	void doDisconnect();
 	void fdActivated(int);
 	void scanImage();
+	void stopScanning();
 	void clearLog();
 };
 
