@@ -50,7 +50,8 @@ static bool read_temp(enum sensor s, double *temp)
   r = Wire.endTransmission(false);
   if (r)
   {
-    Serial.println("EendTransmission failed");
+    sprintf(buf, "EendTransmission failed: %d", r);
+    Serial.println(buf);
     return false;
   }
    
@@ -201,6 +202,7 @@ void loop()
     {
       enum sensor s;
       double temp;
+      int i;
 
       if (len < 2)
       {
@@ -219,7 +221,9 @@ void loop()
       }
 
 //      delay(50);
-      if (!read_temp(s, &temp))
+      for (i = 0; i < 10 && !read_temp(s, &temp); ++i) 
+          delay(5000);
+      if (i == 10)
         return;
 
       if (command[1] == 'o')
