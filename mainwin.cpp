@@ -34,14 +34,9 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 
 	QWidget *buttons = new QWidget(central);
 
-	connectButton = new QPushButton("connect", buttons);
-	connectButton->installEventFilter(this);
-	connect(connectButton,    SIGNAL(clicked()), this, SLOT(doConnect()));
-
-	disconnectButton = new QPushButton("disconnect", buttons);
-	disconnectButton->setEnabled(false);
-	disconnectButton->installEventFilter(this);
-	connect(disconnectButton, SIGNAL(clicked()), this, SLOT(doDisconnect()));
+	connectionButton = new QPushButton("connect", buttons);
+	connectionButton->installEventFilter(this);
+	connect(connectionButton,    SIGNAL(clicked()), this, SLOT(doConnect()));
 
 	QPushButton *clearButton = new QPushButton("clear", buttons);
 	connect(clearButton, SIGNAL(clicked()), this, SLOT(clearLog()));
@@ -74,8 +69,7 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 	maxY->setEnabled(false);
 
 	QHBoxLayout *buttonsLay = new QHBoxLayout();
-	buttonsLay->addWidget(connectButton);
-	buttonsLay->addWidget(disconnectButton);
+	buttonsLay->addWidget(connectionButton);
 	buttonsLay->addWidget(clearButton);
 	buttonsLay->addWidget(scanButton);
 	buttonsLay->addWidget(minX);
@@ -128,8 +122,10 @@ void MainWin::doConnect()
 	notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
 	connect(notifier, SIGNAL(activated(int)), this, SLOT(fdActivated(int)));
 
-	connectButton->setEnabled(false);
-	disconnectButton->setEnabled(true);
+	connectionButton->setText("disconnect");
+	disconnect(connectionButton, SIGNAL(clicked()), this, SLOT(doConnect()));
+	connect(connectionButton, SIGNAL(clicked()), this, SLOT(doDisconnect()));
+
 	pathEdit->setEnabled(false);
 	scanButton->setEnabled(true);
 
@@ -146,8 +142,10 @@ void MainWin::doDisconnect()
 	::close(fd);
 	fd = -1;
 
-	connectButton->setEnabled(true);
-	disconnectButton->setEnabled(false);
+	connectionButton->setText("connect");
+	disconnect(connectionButton, SIGNAL(clicked()), this, SLOT(doDisconnect()));
+	connect(connectionButton, SIGNAL(clicked()), this, SLOT(doConnect()));
+
 	pathEdit->setEnabled(true);
 	scanButton->setEnabled(false);
 	minX->setEnabled(false);
@@ -387,6 +385,7 @@ void MainWin::scanImage()
 	disconnect(scanButton, SIGNAL(clicked()), this, SLOT(scanImage()));
 	scanButton->setText("stop scanning");
 	connect(scanButton, SIGNAL(clicked()), this, SLOT(stopScanning()));
+	connectionButton->setEnabled(false);
 
 	scanInProgress = true;
 }
@@ -395,6 +394,7 @@ void MainWin::stopScanning()
 {
 	scanInProgress = false;
 
+	connectionButton->setEnabled(true);
 	connect(scanButton, SIGNAL(clicked()), this, SLOT(scanImage()));
 	scanButton->setText("scan image");
 

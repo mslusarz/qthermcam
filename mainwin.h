@@ -14,7 +14,7 @@ class QLabel;
 class MainWin : public QMainWindow
 {
 	Q_OBJECT
-	QPushButton *connectButton, *disconnectButton, *scanButton;
+	QPushButton *connectionButton, *scanButton;
 	QLineEdit *pathEdit;
 	QTextEdit *textEdit;
 	QSpinBox *minX, *maxX, *minY, *maxY;
