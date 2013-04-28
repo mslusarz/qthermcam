@@ -16,6 +16,7 @@
 #include <QImage>
 #include <QList>
 #include <QApplication>
+#include <QFileDialog>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -25,7 +26,7 @@
 
 MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NULL), min_x(90), max_x(90), min_y(90), max_y(90),
 		x(90), y(90), temp_object(-1000), temp_ambient(-1000), scanInProgress(false), values(NULL), curMin(0),
-		curMax(0), image(NULL), imageLabel(NULL), splitter(NULL)
+		curMax(0), image(NULL), imageLabel(NULL), splitter(NULL), fileDialog(NULL)
 {
 	QWidget *central = new QWidget(this);
 	setCentralWidget(central);
@@ -47,6 +48,11 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 	scanButton->setEnabled(false);
 	scanButton->installEventFilter(this);
 	stopScanning();
+
+	saveButton = new QPushButton("Save image", buttons);
+	saveButton->setEnabled(false);
+	saveButton->installEventFilter(this);
+	connect(saveButton, SIGNAL(clicked()), this, SLOT(saveImage()));
 
 	minX = new QSpinBox(buttons);
 	minX->setPrefix("Min x: ");
@@ -74,6 +80,7 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 	buttonsLay->addWidget(connectionButton);
 	buttonsLay->addWidget(clearButton);
 	buttonsLay->addWidget(scanButton);
+	buttonsLay->addWidget(saveButton);
 	buttonsLay->addWidget(minX);
 	buttonsLay->addWidget(maxX);
 	buttonsLay->addWidget(minY);
@@ -412,6 +419,8 @@ void MainWin::scanImage()
 	connect(scanButton, SIGNAL(clicked()), this, SLOT(stopScanning()));
 	connectionButton->setEnabled(false);
 
+	saveButton->setEnabled(true);
+
 	scanInProgress = true;
 }
 
@@ -448,5 +457,23 @@ void MainWin::splitterMoved(int, int)
 {
 	if (image)
 		refreshPixmap();
+}
+
+void MainWin::saveImage()
+{
+	if (!fileDialog)
+	{
+		fileDialog = new QFileDialog(this, "Choose file name");
+		fileDialog->setNameFilter("All image files (*.png *.jpg *.bmp *.ppm *.tiff *.xbm *.xpm)");
+	}
+	fileDialog->open(this, SLOT(fileSelected(const QString &)));
+}
+
+void MainWin::fileSelected(const QString &file)
+{
+	if (imageLabel->pixmap()->save(file))
+		log(QString("file %1 saved").arg(file));
+	else
+		log(QString("saving to file %1 failed").arg(file));
 }
 

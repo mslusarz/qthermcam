@@ -11,11 +11,12 @@ class QSpinBox;
 class QImage;
 class QLabel;
 class QSplitter;
+class QFileDialog;
 
 class MainWin : public QMainWindow
 {
 	Q_OBJECT
-	QPushButton *connectionButton, *scanButton;
+	QPushButton *connectionButton, *scanButton, *saveButton;
 	QLineEdit *pathEdit;
 	QTextEdit *textEdit;
 	QSpinBox *minX, *maxX, *minY, *maxY;
@@ -40,6 +41,7 @@ class MainWin : public QMainWindow
 	QSplitter *splitter;
 	QRgb getColor(int level);
 	void refreshPixmap();
+	QFileDialog *fileDialog;
 
 	public:
 	MainWin(QString path);
@@ -54,6 +56,8 @@ class MainWin : public QMainWindow
 	void stopScanning();
 	void clearLog();
 	void splitterMoved(int pos, int index);
+	void saveImage();
+	void fileSelected(const QString &file);
 };
 
 #endif
