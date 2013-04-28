@@ -14,6 +14,8 @@
 #include <QLabel>
 #include <QSizePolicy>
 #include <QImage>
+#include <QList>
+#include <QApplication>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -23,7 +25,7 @@
 
 MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NULL), min_x(90), max_x(90), min_y(90), max_y(90),
 		x(90), y(90), temp_object(-1000), temp_ambient(-1000), scanInProgress(false), values(NULL), curMin(0),
-		curMax(0), image(NULL)
+		curMax(0), image(NULL), imageLabel(NULL), splitter(NULL)
 {
 	QWidget *central = new QWidget(this);
 	setCentralWidget(central);
@@ -81,7 +83,7 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 
 	centralLay->addWidget(buttons);
 
-	QSplitter *splitter = new QSplitter(central);
+	splitter = new QSplitter(central);
 	splitter->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
 
 	textEdit = new QTextEdit(central);
@@ -91,6 +93,13 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 
 	imageLabel = new QLabel();
 	splitter->addWidget(imageLabel);
+
+	QList<int> sizes;
+	sizes.append(9999);
+	sizes.append(0);
+	splitter->setSizes(sizes);
+
+	connect(splitter, SIGNAL(splitterMoved(int, int)), this, SLOT(splitterMoved(int, int)));
 
 	centralLay->addWidget(splitter);
 
@@ -251,7 +260,17 @@ void MainWin::fdActivated(int)
 								for (int j = 0; j < image->width(); ++j)
 									line[j] = getColor((values[i * image->width() + j] - curMin) * 1024 / (curMax - curMin));
 							}
-							imageLabel->setPixmap(QPixmap::fromImage(*image).scaledToWidth(imageLabel->width()));
+
+							if (y == minY->value())
+							{
+								if (imageLabel->width() > image->width())
+									refreshPixmap();
+								else
+									imageLabel->setPixmap(QPixmap::fromImage(*image));
+							}
+							else
+								refreshPixmap();
+							qApp->processEvents();
 
 							if (y == maxY->value())
 								stopScanning();
@@ -361,17 +380,23 @@ void MainWin::scanImage()
 	{
 		delete image;
 		image = new QImage(sz, QImage::Format_ARGB32);
-		image->fill(QColor(0, 0, 0));
-		imageLabel->setPixmap(QPixmap::fromImage(*image).scaledToWidth(imageLabel->width()));
+
 		delete values;
 		values = new float[sz.width() * sz.height()];
-		curMin = 9999;
-		curMax = -9999;
 	}
-	else
-	{
-		image->fill(QColor(0, 0, 0));
-	}
+
+	image->fill(QColor(0, 0, 0));
+	imageLabel->setPixmap(QPixmap::fromImage(*image));
+	imageLabel->setMinimumWidth(sz.width());
+
+	QList<int> sizes;
+	sizes.append(9999);
+	sizes.append(1);
+	splitter->setSizes(sizes);
+	splitter->setCollapsible(1, false);
+
+	curMin = 9999;
+	curMax = -9999;
 
 	minX->setEnabled(false);
 	maxX->setEnabled(false);
@@ -397,6 +422,10 @@ void MainWin::stopScanning()
 	connectionButton->setEnabled(true);
 	connect(scanButton, SIGNAL(clicked()), this, SLOT(scanImage()));
 	scanButton->setText("scan image");
+	if (splitter)
+		splitter->setCollapsible(1, true);
+	if (imageLabel)
+		imageLabel->setMinimumWidth(0);
 
 	if (minX)
 	{
@@ -405,5 +434,19 @@ void MainWin::stopScanning()
 		minY->setEnabled(true);
 		maxY->setEnabled(true);
 	}
+}
+
+void MainWin::refreshPixmap()
+{
+	int newWidth = qMax(image->width(), imageLabel->width() - 10);
+	int newHeight = qMax(image->height(), imageLabel->height() - 10);
+	QPixmap pix = QPixmap::fromImage(*image).scaled(newWidth, newHeight, Qt::KeepAspectRatio/*, Qt::SmoothTransformation*/);
+	imageLabel->setPixmap(pix);
+}
+
+void MainWin::splitterMoved(int, int)
+{
+	if (image)
+		refreshPixmap();
 }
 

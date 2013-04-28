@@ -10,6 +10,7 @@ class QTextEdit;
 class QSpinBox;
 class QImage;
 class QLabel;
+class QSplitter;
 
 class MainWin : public QMainWindow
 {
@@ -36,7 +37,9 @@ class MainWin : public QMainWindow
 	float curMin, curMax;
 	QImage *image;
 	QLabel *imageLabel;
+	QSplitter *splitter;
 	QRgb getColor(int level);
+	void refreshPixmap();
 
 	public:
 	MainWin(QString path);
@@ -50,6 +53,7 @@ class MainWin : public QMainWindow
 	void scanImage();
 	void stopScanning();
 	void clearLog();
+	void splitterMoved(int pos, int index);
 };
 
 #endif
