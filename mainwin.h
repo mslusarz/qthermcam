@@ -45,6 +45,9 @@ class MainWin : public QMainWindow
 	QFileDialog *fileDialog;
 	void dumpTermiosInfo(const struct termios &argp);
 
+	bool lockDevice();
+	void unlockDevice();
+
 	public:
 	MainWin(QString path);
 

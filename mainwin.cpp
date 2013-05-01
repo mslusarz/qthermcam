@@ -17,6 +17,7 @@
 #include <QList>
 #include <QApplication>
 #include <QFileDialog>
+#include <QFileInfo>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -24,6 +25,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <termios.h>
+#include <signal.h>
 
 MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NULL), min_x(90), max_x(90), min_y(90), max_y(90),
 		x(90), y(90), temp_object(-1000), temp_ambient(-1000), scanInProgress(false), values(NULL), curMin(0),
@@ -250,13 +252,162 @@ void MainWin::dumpTermiosInfo(const struct termios &argp)
 	log(out);
 }
 
+bool MainWin::lockDevice()
+{
+	// locking algo should work with arduino ide
+
+	// likely broken WRT races, who cares?
+	QString devicePath = pathEdit->text();
+	QFileInfo deviceInfo(devicePath);
+	if (!deviceInfo.exists())
+	{
+		log(devicePath + ": device does not exist");
+		return false;
+	}
+
+	QString lockFilePath = "/var/lock/LCK.." + deviceInfo.fileName();
+	QByteArray lockfilePathLocal = lockFilePath.toLocal8Bit();
+	QFileInfo lockFileInfo(lockFilePath);
+	int lfd, r;
+
+	if (lockFileInfo.exists())
+	{
+		lfd = open(lockfilePathLocal.constData(), O_RDONLY);
+		if (lfd == -1)
+		{
+			log("cannot open lock file " + lockFilePath + ": " + QString(strerror(errno)));
+			return false;
+		}
+
+		char buf[101];
+		r = read(lfd, buf, 100);
+		if (r < 0)
+		{
+			log("cannot read from lock file " + lockFilePath + ": " + QString(strerror(errno)));
+			::close(lfd);
+			return false;
+		}
+
+		buf[r] = 0;
+		int pid = -1;
+		sscanf(buf, "%10d\n", &pid);
+		if (pid <= 0)
+		{
+			if (unlink(lockfilePathLocal.constData()))
+			{
+				log("cannot remove stale lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
+				return false;
+			}
+			// clean state
+		}
+		else
+		{
+			r = kill(pid, 0);
+			if (r == -1 && errno == ESRCH)
+			{
+				if (unlink(lockfilePathLocal.constData()))
+				{
+					log("cannot remove stale lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
+					return false;
+				}
+				// clean state
+			}
+			else
+			{
+				log("device is locked by process " + QString::number(pid));
+				return false;
+			}
+		}
+	}
+
+	lfd = open(lockfilePathLocal.constData(), O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IRGRP | S_IROTH);
+	if (lfd == -1)
+	{
+		log("cannot open lock file " + lockFilePath + ": " + QString(strerror(errno)));
+		return false;
+	}
+	char buf[100];
+	sprintf(buf, "%10d\n", (int)getpid()); // exactly how rxtx does it
+	int len = strlen(buf);
+
+	r = write(lfd, buf, len);
+	if (r != len)
+	{
+		log("cannot write to lock file " + lockFilePath + ": " + QString(strerror(errno)));
+		::close(lfd);
+		if (unlink(lockfilePathLocal.constData()))
+			log("cannot remove lock file! " + QString(strerror(errno)));
+		return false;
+	}
+
+	::close(lfd);
+
+	return true;
+}
+
+void MainWin::unlockDevice()
+{
+	QString devicePath = pathEdit->text();
+	QFileInfo deviceInfo(devicePath);
+
+	QString lockFilePath = "/var/lock/LCK.." + deviceInfo.fileName();
+	QByteArray lockfilePathLocal = lockFilePath.toLocal8Bit();
+	QFileInfo lockFileInfo(lockFilePath);
+	int lfd, r;
+
+	if (!lockFileInfo.exists())
+	{
+		log("someone unlocked the device behind our back");
+		return;
+	}
+
+	lfd = open(lockfilePathLocal.constData(), O_RDONLY);
+	if (lfd == -1)
+	{
+		log("cannot open lock file " + lockFilePath + ": " + QString(strerror(errno)));
+		return;
+	}
+
+	char buf[101];
+	r = read(lfd, buf, 100);
+	if (r < 0)
+	{
+		log("cannot read from lock file " + lockFilePath + ": " + QString(strerror(errno)));
+		::close(lfd);
+		return;
+	}
+
+	buf[r] = 0;
+	int pid = -1;
+	sscanf(buf, "%10d\n", &pid);
+	if (pid <= 0)
+	{
+		if (unlink(lockfilePathLocal.constData()))
+			log("cannot remove stale lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
+	}
+	else
+	{
+		if (pid == getpid())
+		{
+			if (unlink(lockfilePathLocal.constData()))
+				log("cannot remove lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
+		}
+		else
+			log("someone unlocked the device behind our back AND locked it, new process is " + QString::number(pid));
+	}
+}
+
 void MainWin::doConnect()
 {
 	QString path = pathEdit->text();
 
 	log(path + ": connecting");
 
-	fd = open(path.toLocal8Bit().constData(), O_RDWR | O_NOCTTY); // +O_NONBLOCK?
+	if (!lockDevice())
+		return;
+
+	QByteArray pathLocal = path.toLocal8Bit();
+	fd = open(pathLocal.constData(), O_RDWR | O_NOCTTY); // +O_NONBLOCK?
 	if (fd == -1)
 	{
 		log(path + ": " + QString(strerror(errno)));
@@ -325,6 +476,7 @@ void MainWin::doDisconnect()
 	delete notifier;
 	::close(fd);
 	fd = -1;
+	unlockDevice();
 
 	connectionButton->setText("Connect to device");
 	disconnect(connectionButton, SIGNAL(clicked()), this, SLOT(doDisconnect()));
