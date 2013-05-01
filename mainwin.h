@@ -8,11 +8,11 @@ class QSocketNotifier;
 class QLineEdit;
 class QTextEdit;
 class QSpinBox;
-class QImage;
 class QLabel;
 class QSplitter;
 class QFileDialog;
 struct termios;
+class TempView;
 
 class MainWin : public QMainWindow
 {
@@ -36,12 +36,8 @@ class MainWin : public QMainWindow
 	void resetStatusBar();
 	bool scanInProgress;
 	float *values;
-	float curMin, curMax;
-	QImage *image;
-	QLabel *imageLabel;
+	TempView *tempView;
 	QSplitter *splitter;
-	QRgb getColor(int level);
-	void refreshPixmap();
 	QFileDialog *fileDialog;
 	void dumpTermiosInfo(const struct termios &argp);
 

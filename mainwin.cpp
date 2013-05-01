@@ -19,6 +19,8 @@
 #include <QFileDialog>
 #include <QFileInfo>
 
+#include "tempview.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -28,8 +30,8 @@
 #include <signal.h>
 
 MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NULL), min_x(90), max_x(90), min_y(90), max_y(90),
-		x(90), y(90), temp_object(-1000), temp_ambient(-1000), scanInProgress(false), values(NULL), curMin(0),
-		curMax(0), image(NULL), imageLabel(NULL), splitter(NULL), fileDialog(NULL)
+		x(90), y(90), temp_object(-1000), temp_ambient(-1000), scanInProgress(false), values(NULL), tempView(NULL),
+		splitter(NULL), fileDialog(NULL)
 {
 	QWidget *central = new QWidget(this);
 	setCentralWidget(central);
@@ -101,8 +103,8 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 	textEdit->installEventFilter(this);
 	splitter->addWidget(textEdit);
 
-	imageLabel = new QLabel();
-	splitter->addWidget(imageLabel);
+	tempView = new TempView();
+	splitter->addWidget(tempView);
 
 	QList<int> sizes;
 	sizes.append(9999);
@@ -504,18 +506,6 @@ void MainWin::resetStatusBar()
 			.arg(x).arg(y).arg(temp_object).arg(temp_ambient));
 }
 
-QRgb MainWin::getColor(int level)
-{
-	level = 1024 - level;
-	if (level < 256)
-		return qRgb(255, 255 - level, 0);
-	if (level < 512)
-		return qRgb(255, 0, level - 256);
-	if (level < 768)
-		return qRgb(255 - (level - 512), 0, 255);
-	return qRgb(0, level - 768, 255);
-}
-
 void MainWin::fdActivated(int)
 {
 	char c;
@@ -573,30 +563,12 @@ void MainWin::fdActivated(int)
 					resetStatusBar();
 					if (scanInProgress)
 					{
-						if (temp_object < curMin)
-							curMin = temp_object;
-						if (temp_object > curMax)
-							curMax = temp_object;
-						values[image->width() * (y - minY->value()) + (x - minX->value())] = temp_object;
+						tempView->setTemperature(x, y, temp_object);
 
 						if (x == maxX->value())
 						{
-							for (int i = 0; i < qMin(image->height(), y - minY->value() + 1); ++i)
-							{
-								QRgb *line = (QRgb *)image->scanLine(image->height() - i - 1);
-								for (int j = 0; j < image->width(); ++j)
-									line[j] = getColor((values[i * image->width() + j] - curMin) * 1024 / (curMax - curMin));
-							}
-
-							if (y == minY->value())
-							{
-								if (imageLabel->width() > image->width())
-									refreshPixmap();
-								else
-									imageLabel->setPixmap(QPixmap::fromImage(*image));
-							}
-							else
-								refreshPixmap();
+							tempView->refreshImage(minY->value(), y);
+							tempView->refreshView();
 							qApp->processEvents();
 
 							if (y == maxY->value())
@@ -703,27 +675,18 @@ bool MainWin::eventFilter(QObject *obj, QEvent *_event)
 void MainWin::scanImage()
 {
 	QSize sz = QSize(maxX->value() - minX->value() + 1, maxY->value() - minY->value() + 1);
-	if (!image || image->size() != sz)
-	{
-		delete image;
-		image = new QImage(sz, QImage::Format_ARGB32);
 
-		delete values;
-		values = new float[sz.width() * sz.height()];
-	}
+	delete values;
+	values = new float[sz.width() * sz.height()];
 
-	image->fill(QColor(0, 0, 0));
-	imageLabel->setPixmap(QPixmap::fromImage(*image));
-	imageLabel->setMinimumWidth(sz.width());
+	tempView->setBuffer(values, minX->value(), maxX->value(), minY->value(), maxY->value());
+	tempView->setMinimumWidth(sz.width());
 
 	QList<int> sizes;
 	sizes.append(9999);
 	sizes.append(1);
 	splitter->setSizes(sizes);
 	splitter->setCollapsible(1, false);
-
-	curMin = 9999;
-	curMax = -9999;
 
 	minX->setEnabled(false);
 	maxX->setEnabled(false);
@@ -753,8 +716,8 @@ void MainWin::stopScanning()
 	scanButton->setText("Scan image");
 	if (splitter)
 		splitter->setCollapsible(1, true);
-	if (imageLabel)
-		imageLabel->setMinimumWidth(0);
+	if (tempView)
+		tempView->setMinimumWidth(0);
 
 	if (minX)
 	{
@@ -765,18 +728,9 @@ void MainWin::stopScanning()
 	}
 }
 
-void MainWin::refreshPixmap()
-{
-	int newWidth = qMax(image->width(), imageLabel->width() - 10);
-	int newHeight = qMax(image->height(), imageLabel->height() - 10);
-	QPixmap pix = QPixmap::fromImage(*image).scaled(newWidth, newHeight, Qt::KeepAspectRatio/*, Qt::SmoothTransformation*/);
-	imageLabel->setPixmap(pix);
-}
-
 void MainWin::splitterMoved(int, int)
 {
-	if (image)
-		refreshPixmap();
+	tempView->refreshView();
 }
 
 void MainWin::saveImage()
@@ -791,7 +745,7 @@ void MainWin::saveImage()
 
 void MainWin::fileSelected(const QString &file)
 {
-	if (imageLabel->pixmap()->save(file))
+	if (tempView->pixmap()->save(file))
 		log(QString("file %1 saved").arg(file));
 	else
 		log(QString("saving to file %1 failed").arg(file));
