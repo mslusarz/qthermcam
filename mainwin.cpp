@@ -23,6 +23,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <termios.h>
 
 MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NULL), min_x(90), max_x(90), min_y(90), max_y(90),
 		x(90), y(90), temp_object(-1000), temp_ambient(-1000), scanInProgress(false), values(NULL), curMin(0),
@@ -123,15 +124,182 @@ void MainWin::log(const QString &txt)
 	textEdit->append(txt);
 }
 
+struct flags_desc
+{
+	unsigned int flag;
+	QString desc;
+};
+
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+#define _F(X) {X, #X}
+
+static struct flags_desc iflags[] =
+{
+	_F(IGNBRK),	_F(IGNBRK),	_F(BRKINT),	_F(IGNPAR),
+	_F(PARMRK),	_F(INPCK),	_F(ISTRIP),	_F(INLCR),
+	_F(IGNCR),	_F(ICRNL),	_F(IUCLC),	_F(IXON),
+	_F(IXANY),	_F(IXOFF),	_F(IMAXBEL),_F(IUTF8)
+};
+
+static struct flags_desc oflags[] =
+{
+	_F(OPOST),	_F(OLCUC),	_F(ONLCR),	_F(OCRNL),
+	_F(ONOCR),	_F(ONLRET),	_F(OFILL),	_F(OFDEL),
+	_F(NLDLY),	_F(CRDLY),	_F(TABDLY),	_F(BSDLY),
+	_F(VTDLY),	_F(FFDLY)
+};
+
+static struct flags_desc cflags[] =
+{
+	_F(CSTOPB),	_F(CREAD),	_F(PARENB),	_F(PARODD),
+	_F(HUPCL),	_F(CLOCAL),	_F(CIBAUD),	_F(CMSPAR),
+	_F(CRTSCTS),_F(CBAUDEX)
+};
+
+static struct flags_desc lflags[] =
+{
+	_F(ISIG),	_F(ICANON),	_F(XCASE),	_F(ECHO),
+	_F(ECHOE),	_F(ECHOK),	_F(ECHONL),	_F(ECHOCTL),
+	_F(ECHOPRT),_F(ECHOKE),	_F(FLUSHO),	_F(NOFLSH),
+	_F(TOSTOP),	_F(PENDIN),	_F(IEXTEN)
+};
+
+static struct flags_desc speeds[] =
+{
+	_F(B50),		_F(B75),		_F(B110),		_F(B134),
+	_F(B150),		_F(B200),		_F(B300),		_F(B600),
+	_F(B1200),		_F(B1800),		_F(B2400),		_F(B4800),
+	_F(B9600),		_F(B19200),		_F(B38400),		_F(B57600),
+	_F(B115200),	_F(B230400),	_F(B460800),	_F(B500000),
+	_F(B576000),	_F(B921600),	_F(B1000000),	_F(B1152000),
+	_F(B1500000),	_F(B2000000),	_F(B2500000),	_F(B3000000),
+	_F(B3500000),	_F(B4000000)
+};
+
+void MainWin::dumpTermiosInfo(const struct termios &argp)
+{
+	speed_t speed;
+	unsigned int i;
+	QString out;
+	QStringList outlist;
+
+	outlist.append(out.sprintf("iflag:  0x%08x", argp.c_iflag));
+	for (i = 0; i < ARRAY_SIZE(iflags); ++i)
+		if (argp.c_iflag & iflags[i].flag)
+			outlist.append(iflags[i].desc);
+	log(outlist.join(" "));
+
+	outlist.clear();
+	outlist.append(out.sprintf("oflag:  0x%08x", argp.c_oflag));
+	for (i = 0; i < ARRAY_SIZE(oflags); ++i)
+		if (argp.c_oflag & oflags[i].flag)
+			outlist.append(oflags[i].desc);
+	log(outlist.join(" "));
+
+	outlist.clear();
+	outlist.append(out.sprintf("cflag:  0x%08x", argp.c_cflag));
+	for (i = 0; i < ARRAY_SIZE(cflags); ++i)
+		if (argp.c_cflag & cflags[i].flag)
+			outlist.append(cflags[i].desc);
+	if (argp.c_cflag & CBAUD)
+		outlist.append(out.sprintf("CBAUD(%x)", argp.c_cflag & CBAUD));
+	if (argp.c_cflag & CSIZE)
+	{
+		out.sprintf("CSIZE(0x%x = ", argp.c_cflag & CSIZE);
+		switch (argp.c_cflag & CSIZE)
+		{
+			case CS5: out.append("CS5"); break;
+			case CS6: out.append("CS6"); break;
+			case CS7: out.append("CS7"); break;
+			case CS8: out.append("CS8"); break;
+			default: out.append("???"); break;
+		}
+		out.append(")");
+		outlist.append(out);
+	}
+	log(outlist.join(" "));
+
+	outlist.clear();
+	outlist.append(out.sprintf("lflag:  0x%08x", argp.c_lflag));
+	for (i = 0; i < ARRAY_SIZE(lflags); ++i)
+		if (argp.c_lflag & lflags[i].flag)
+			outlist.append(lflags[i].desc);
+	log(outlist.join(" "));
+
+	out.sprintf("cline:  0x%08x", argp.c_line);
+	log(out);
+
+	speed = cfgetispeed(&argp);
+	out.sprintf("ispeed: 0x%08x ", speed);
+	for (i = 0; i < ARRAY_SIZE(speeds); ++i)
+		if (speed == speeds[i].flag)
+		{
+			out.append(speeds[i].desc);
+			break;
+		}
+	log(out);
+
+	speed = cfgetospeed(&argp);
+	out.sprintf("ospeed: 0x%08x ", speed);
+	for (i = 0; i < ARRAY_SIZE(speeds); ++i)
+		if (speed == speeds[i].flag)
+		{
+			out.append(speeds[i].desc);
+			break;
+		}
+	log(out);
+}
+
 void MainWin::doConnect()
 {
 	QString path = pathEdit->text();
-	fd = open(path.toLocal8Bit().constData(), O_RDWR);
+
+	log(path + ": connecting");
+
+	fd = open(path.toLocal8Bit().constData(), O_RDWR | O_NOCTTY); // +O_NONBLOCK?
 	if (fd == -1)
 	{
 		log(path + ": " + QString(strerror(errno)));
 		return;
 	}
+
+	struct termios argp;
+
+	if (tcgetattr(fd, &argp))
+	{
+		log(path + " tcgetattr: " + QString(strerror(errno)));
+		::close(fd);
+		fd = -1;
+		return;
+	}
+
+	log("current port settings: ");
+	dumpTermiosInfo(argp);
+
+	argp.c_iflag = 0;
+	argp.c_oflag = 0;
+	argp.c_cflag = 0;
+	argp.c_lflag = 0;
+
+	argp.c_iflag |= INPCK;
+
+	argp.c_cflag |= CS8;
+	argp.c_cflag |= CREAD;
+	argp.c_cflag |= CLOCAL;
+
+	cfsetspeed(&argp, B9600);
+
+	log("new port settings: ");
+	dumpTermiosInfo(argp);
+
+	if (tcsetattr(fd, TCSANOW, &argp))
+	{
+		log(path + " tcsetattr: " + QString(strerror(errno)));
+		::close(fd);
+		fd = -1;
+		return;
+	}
+
 	log(path + ": connected");
 	statusBar()->showMessage("connected");
 

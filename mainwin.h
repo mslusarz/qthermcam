@@ -12,6 +12,7 @@ class QImage;
 class QLabel;
 class QSplitter;
 class QFileDialog;
+struct termios;
 
 class MainWin : public QMainWindow
 {
@@ -42,6 +43,7 @@ class MainWin : public QMainWindow
 	QRgb getColor(int level);
 	void refreshPixmap();
 	QFileDialog *fileDialog;
+	void dumpTermiosInfo(const struct termios &argp);
 
 	public:
 	MainWin(QString path);
