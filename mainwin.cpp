@@ -812,5 +812,7 @@ void MainWin::saveSettingsLater()
 void MainWin::closeEvent(QCloseEvent *event)
 {
 	saveSettings();
+	if (fd != -1)
+		doDisconnect();
 	QMainWindow::closeEvent(event);
 }
