@@ -64,6 +64,7 @@ class MainWin : public QMainWindow
 	void saveImage();
 	void fileSelected(const QString &file);
 	void saveSettings();
+	void imageClicked(const QPoint &p);
 };
 
 #endif

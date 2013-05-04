@@ -11,6 +11,7 @@ class TempView : public QLabel
 	int xmin, xmax, ymin, ymax;
 	int dataWidth, dataHeight;
 	QImage *cacheImage;
+	QPoint getPoint(QMouseEvent *event);
 
 public:
 	TempView(QWidget *parent = 0, Qt::WindowFlags f = 0);
@@ -23,8 +24,11 @@ public:
 
 public slots:
 	void refreshView();
+signals:
+	void leftMouseButtonClicked(const QPoint &p);
 protected:
 	void mouseMoveEvent(QMouseEvent *event);
+	void mousePressEvent(QMouseEvent *event);
 };
 
 

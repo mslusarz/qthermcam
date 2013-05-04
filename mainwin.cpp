@@ -129,6 +129,7 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 
 	tempView = new TempView();
 	splitter->addWidget(tempView);
+	connect(tempView, SIGNAL(leftMouseButtonClicked(const QPoint &)), this, SLOT(imageClicked(const QPoint &)));
 
 	if (!splitter->restoreState(settings.value("splitterSizes").toByteArray()))
 	{
@@ -815,4 +816,12 @@ void MainWin::closeEvent(QCloseEvent *event)
 	if (fd != -1)
 		doDisconnect();
 	QMainWindow::closeEvent(event);
+}
+
+void MainWin::imageClicked(const QPoint &p)
+{
+	if (fd == -1 || scanInProgress || p.x() < minX->value() || p.x() > maxX->value() || p.y() < minY->value() || p.y() > maxY->value())
+		return;
+	moveX(p.x());
+	moveY(p.y());
 }

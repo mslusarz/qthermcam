@@ -103,36 +103,57 @@ void TempView::refreshView()
 		setPixmap(QPixmap::fromImage(*cacheImage));
 }
 
-void TempView::mouseMoveEvent(QMouseEvent *event)
+QPoint TempView::getPoint(QMouseEvent *event)
 {
 	const QPixmap *p = pixmap();
 	if (!p)
-		return;
+		return QPoint(-1, -1);
 	int ph = p->height();
 	int pw = p->width();
 
 	int xpos = event->x() - (width() - pw) / 2 - 2;
 	int ypos = event->y() - (height() - ph) / 2 - 2;
+
 	if (xpos < 0 || xpos >= pw || ypos < 0 || ypos >= ph)
-	{
-		QToolTip::showText(event->globalPos(), "", this);
-		QLabel::mouseMoveEvent(event);
-		return;
-	}
+		return QPoint(-1, -1);
 
 	xpos = xpos * dataWidth / pw;
 	ypos = ypos * dataHeight / ph;
 
 	if (xpos >= dataWidth || ypos >= dataHeight)
+		return QPoint(-1, -1);
+	ypos = dataHeight - ypos - 1;
+
+	return QPoint(xpos, ypos);
+}
+
+void TempView::mouseMoveEvent(QMouseEvent *event)
+{
+	QPoint p = getPoint(event);
+	if (p.x() < 0)
 	{
 		QToolTip::showText(event->globalPos(), "", this);
 		QLabel::mouseMoveEvent(event);
 		return;
 	}
 
-	QString s = QString::number(buffer[(dataHeight - ypos - 1) * dataWidth + xpos]);
-//	s.sprintf("%d %d %f", xpos, ypos, buffer[(dataHeight - ypos - 1) * dataWidth + xpos]);
+	QString s = QString::number(buffer[p.y() * dataWidth + p.x()]);
+	//s.sprintf("%d %d %f", p.x(), p.y(), buffer[p.y() * dataWidth + p.x()]);
 	QToolTip::showText(event->globalPos(), s, this);
 	QLabel::mouseMoveEvent(event);
 }
 
+void TempView::mousePressEvent(QMouseEvent *event)
+{
+	if (event->button() == Qt::LeftButton)
+	{
+		QPoint p = getPoint(event);
+		if (p.x() >= 0)
+		{
+			p += QPoint(xmin, ymin);
+			emit leftMouseButtonClicked(p);
+		}
+	}
+
+	QLabel::mousePressEvent(event);
+}
