@@ -39,7 +39,7 @@ void TempView::setBuffer(float *temps, int _xmin, int _xmax, int _ymin, int _yma
 
 	cacheImage->fill(QColor(0, 0, 0));
 
-	setPixmap(QPixmap::fromImage(*cacheImage));
+	refreshView();
 }
 
 void TempView::setTemperature(int x, int y, float temp)

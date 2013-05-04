@@ -682,10 +682,13 @@ void MainWin::scanImage()
 	tempView->setBuffer(values, minX->value(), maxX->value(), minY->value(), maxY->value());
 	tempView->setMinimumWidth(sz.width());
 
-	QList<int> sizes;
-	sizes.append(9999);
-	sizes.append(1);
-	splitter->setSizes(sizes);
+	if (tempView->width() < 20)
+	{
+		QList<int> sizes;
+		sizes.append(9999);
+		sizes.append(1);
+		splitter->setSizes(sizes);
+	}
 	splitter->setCollapsible(1, false);
 
 	minX->setEnabled(false);
