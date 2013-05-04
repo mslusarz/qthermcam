@@ -1,0 +1,19 @@
+QThermCam - a tool for controlling Arduino-based cheap thermographic image
+scanner which uses MLX90614ESF-BCI temperature sensor, 2 servos, laser
+pointer, pan/tilt bracket and Arduino Uno (R3).
+
+You can see hardware design at http://www.cheap-thermocam.tk/
+(click "Old version" for build instructions).
+
+This tool consists of 2 parts:
+- Arduino software (in thermcam_arduino folder), which controls actual hardware
+  (sensor and servos)
+- desktop software - Qt application, which communicates with Arduino through
+  USB and visualizes received data.
+
+http://www.cheap-thermocam.tk/
+http://arduino.cc/
+http://qt-project.org/
+
+Author: Marcin Slusarz <marcin.slusarz@gmail.com>
+Repo: https://github.com/mslusarz/qthermcam
