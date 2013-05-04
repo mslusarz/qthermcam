@@ -19,9 +19,11 @@
 #include <QImage>
 #include <QMouseEvent>
 #include <QToolTip>
+#include <QPainter>
 
 TempView::TempView(QWidget *parent, Qt::WindowFlags f) : QLabel(parent, f), buffer(NULL), tmin(999),
-	tmax(-999), xmin(0), xmax(0), ymin(0), ymax(0), dataWidth(0), dataHeight(0), cacheImage(NULL)
+	tmax(-999), xmin(0), xmax(0), ymin(0), ymax(0), dataWidth(0), dataHeight(0), cacheImage(NULL),
+	xhighlight(-1), yhighlight(-1)
 {
 	setMouseTracking(true);
 	setAlignment(Qt::AlignCenter);
@@ -92,15 +94,42 @@ void TempView::refreshView()
 	if (!cacheImage)
 		return;
 
+	QImage tempImage;
+
 	if (width() > dataWidth)
 	{
 		int newWidth = qMax(dataWidth, width() - 10);
 		int newHeight = qMax(dataHeight, height() - 10);
-		QPixmap pix = QPixmap::fromImage(*cacheImage).scaled(newWidth, newHeight, Qt::KeepAspectRatio/*, Qt::SmoothTransformation*/);
-		setPixmap(pix);
+
+		// round down to the nearest multiple of data[Width|Height]
+		newWidth = int(newWidth / dataWidth) * dataWidth;
+		newHeight = int(newHeight / dataHeight) * dataHeight;
+
+		tempImage = cacheImage->scaled(newWidth, newHeight, Qt::KeepAspectRatio/*, Qt::SmoothTransformation*/);
 	}
 	else
-		setPixmap(QPixmap::fromImage(*cacheImage));
+		tempImage = cacheImage->copy();
+
+	// highlight "point"
+	int image_xhighlight = xhighlight - xmin;
+	int image_yhighlight = yhighlight - ymin;
+	if (image_xhighlight >= 0 && image_xhighlight < dataWidth &&
+		image_yhighlight >= 0 && image_yhighlight < dataHeight)
+	{
+		int xscale = tempImage.width() / dataWidth;
+		int yscale = tempImage.height() / dataHeight;
+		int wrect = xscale - 1;
+		int hrect = yscale - 1;
+		if (wrect == 0)
+			wrect++;
+		if (hrect == 0)
+			hrect++;
+		QPainter p(&tempImage);
+		p.setPen(QColor(255,255,255));
+		p.drawRect(image_xhighlight * xscale, tempImage.height() - (image_yhighlight + 1) * yscale, wrect, hrect);
+	}
+
+	setPixmap(QPixmap::fromImage(tempImage));
 }
 
 QPoint TempView::getPoint(QMouseEvent *event)
@@ -156,4 +185,10 @@ void TempView::mousePressEvent(QMouseEvent *event)
 	}
 
 	QLabel::mousePressEvent(event);
+}
+
+void TempView::highlightPoint(int x, int y)
+{
+	xhighlight = x;
+	yhighlight = y;
 }

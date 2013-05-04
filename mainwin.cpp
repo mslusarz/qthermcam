@@ -571,16 +571,26 @@ void MainWin::fdActivated(int)
 				bool ok;
 				int tmpx = msg.mid(3).toInt(&ok);
 				if (ok)
+				{
 					x = tmpx;
-				resetStatusBar();
+					tempView->highlightPoint(x, y);
+					if (!scanInProgress)
+						tempView->refreshView();
+					resetStatusBar();
+				}
 			}
 			else if (msg.startsWith("Iy: "))
 			{
 				bool ok;
 				int tmpy = msg.mid(3).toInt(&ok);
 				if (ok)
+				{
 					y = tmpy;
-				resetStatusBar();
+					tempView->highlightPoint(x, y);
+					if (!scanInProgress)
+						tempView->refreshView();
+					resetStatusBar();
+				}
 			}
 			else if (msg.startsWith("Itemp "))
 			{
@@ -781,6 +791,8 @@ void MainWin::saveImage()
 		fileDialog = new QFileDialog(this, "Choose file name");
 		fileDialog->setNameFilter("All image files (*.png *.jpg *.bmp *.ppm *.tiff *.xbm *.xpm)");
 	}
+	tempView->highlightPoint(-1, -1);
+	tempView->refreshView();
 	fileDialog->open(this, SLOT(fileSelected(const QString &)));
 }
 

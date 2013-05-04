@@ -11,6 +11,7 @@ class TempView : public QLabel
 	int xmin, xmax, ymin, ymax;
 	int dataWidth, dataHeight;
 	QImage *cacheImage;
+	int xhighlight, yhighlight;
 	QPoint getPoint(QMouseEvent *event);
 
 public:
@@ -21,6 +22,8 @@ public:
 	void setTemperature(int x, int y, float temp);
 
 	void refreshImage(int ymin, int ymax);
+
+	void highlightPoint(int x, int y);
 
 public slots:
 	void refreshView();
