@@ -1,11 +1,14 @@
 #include "tempview.h"
 
 #include <QImage>
+#include <QMouseEvent>
+#include <QToolTip>
 
 TempView::TempView(QWidget *parent, Qt::WindowFlags f) : QLabel(parent, f), buffer(NULL), tmin(999),
 	tmax(-999), xmin(0), xmax(0), ymin(0), ymax(0), dataWidth(0), dataHeight(0), cacheImage(NULL)
 {
-
+	setMouseTracking(true);
+	setAlignment(Qt::AlignCenter);
 }
 
 void TempView::setBuffer(float *temps, int _xmin, int _xmax, int _ymin, int _ymax)
@@ -83,3 +86,37 @@ void TempView::refreshView()
 	else
 		setPixmap(QPixmap::fromImage(*cacheImage));
 }
+
+void TempView::mouseMoveEvent(QMouseEvent *event)
+{
+	const QPixmap *p = pixmap();
+	if (!p)
+		return;
+	int ph = p->height();
+	int pw = p->width();
+
+	int xpos = event->x() - (width() - pw) / 2 - 2;
+	int ypos = event->y() - (height() - ph) / 2 - 2;
+	if (xpos < 0 || xpos >= pw || ypos < 0 || ypos >= ph)
+	{
+		QToolTip::showText(event->globalPos(), "", this);
+		QLabel::mouseMoveEvent(event);
+		return;
+	}
+
+	xpos = xpos * dataWidth / pw;
+	ypos = ypos * dataHeight / ph;
+
+	if (xpos >= dataWidth || ypos >= dataHeight)
+	{
+		QToolTip::showText(event->globalPos(), "", this);
+		QLabel::mouseMoveEvent(event);
+		return;
+	}
+
+	QString s = QString::number(buffer[(dataHeight - ypos - 1) * dataWidth + xpos]);
+//	s.sprintf("%d %d %f", xpos, ypos, buffer[(dataHeight - ypos - 1) * dataWidth + xpos]);
+	QToolTip::showText(event->globalPos(), s, this);
+	QLabel::mouseMoveEvent(event);
+}
+

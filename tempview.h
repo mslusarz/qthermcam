@@ -23,6 +23,8 @@ public:
 
 public slots:
 	void refreshView();
+protected:
+	void mouseMoveEvent(QMouseEvent *event);
 };
 
 
