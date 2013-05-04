@@ -34,6 +34,8 @@
 #include <QApplication>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QTimer>
+#include <QSettings>
 
 #include "tempview.h"
 
@@ -75,27 +77,33 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 	saveButton->installEventFilter(this);
 	connect(saveButton, SIGNAL(clicked()), this, SLOT(saveImage()));
 
+	QSettings settings;
+
 	minX = new QSpinBox(buttons);
 	minX->setPrefix("Min x: ");
 	minX->setRange(0, 180);
 	minX->setEnabled(false);
+	minX->setValue(settings.value("xmin").toInt());
 
 	maxX = new QSpinBox(buttons);
 	maxX->setPrefix("Max x: ");
 	maxX->setRange(0, 180);
 	maxX->setValue(180);
 	maxX->setEnabled(false);
+	maxX->setValue(settings.value("xmax").toInt());
 
 	minY = new QSpinBox(buttons);
 	minY->setPrefix("Min y: ");
 	minY->setRange(0, 180);
 	minY->setEnabled(false);
+	minY->setValue(settings.value("ymin").toInt());
 
 	maxY = new QSpinBox(buttons);
 	maxY->setPrefix("Max y: ");
 	maxY->setRange(0, 180);
 	maxY->setValue(180);
 	maxY->setEnabled(false);
+	maxY->setValue(settings.value("ymax").toInt());
 
 	QHBoxLayout *buttonsLay = new QHBoxLayout();
 	buttonsLay->addWidget(connectionButton);
@@ -122,10 +130,13 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 	tempView = new TempView();
 	splitter->addWidget(tempView);
 
-	QList<int> sizes;
-	sizes.append(9999);
-	sizes.append(0);
-	splitter->setSizes(sizes);
+	if (!splitter->restoreState(settings.value("splitterSizes").toByteArray()))
+	{
+		QList<int> sizes;
+		sizes.append(9999);
+		sizes.append(0);
+		splitter->setSizes(sizes);
+	}
 
 	connect(splitter, SIGNAL(splitterMoved(int, int)), this, SLOT(splitterMoved(int, int)));
 
@@ -135,8 +146,15 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 
 	central->setLayout(centralLay);
 
-	QRect deskRect = QDesktopWidget().screenGeometry();
-	setGeometry(100, 100, deskRect.width() - 200, deskRect.height() - 200);
+	settingsTimer = new QTimer(this);
+	settingsTimer->setSingleShot(true);
+	connect(settingsTimer, SIGNAL(timeout()), this, SLOT(saveSettings()));
+
+	if (!restoreGeometry(settings.value("geometry").toByteArray()))
+	{
+		QRect deskRect = QDesktopWidget().screenGeometry();
+		setGeometry(100, 100, deskRect.width() - 200, deskRect.height() - 200);
+	}
 }
 
 void MainWin::log(const QString &txt)
@@ -712,6 +730,8 @@ void MainWin::scanImage()
 	minY->setEnabled(false);
 	maxY->setEnabled(false);
 
+	saveSettings();
+
 	moveY(minY->value());
 	moveX(minX->value());
 	readObjectTemp();
@@ -750,6 +770,7 @@ void MainWin::stopScanning()
 void MainWin::splitterMoved(int, int)
 {
 	tempView->refreshView();
+	saveSettingsLater();
 }
 
 void MainWin::saveImage()
@@ -770,3 +791,26 @@ void MainWin::fileSelected(const QString &file)
 		log(QString("saving to file %1 failed").arg(file));
 }
 
+void MainWin::saveSettings()
+{
+	QSettings settings;
+	settings.setValue("xmin", minX->value());
+	settings.setValue("xmax", maxX->value());
+	settings.setValue("ymin", minY->value());
+	settings.setValue("ymax", maxY->value());
+	const QPixmap *pix = tempView->pixmap();
+	if (pix)
+		settings.setValue("splitterSizes", splitter->saveState());
+	settings.setValue("geometry", saveGeometry());
+}
+
+void MainWin::saveSettingsLater()
+{
+	settingsTimer->start(2000);
+}
+
+void MainWin::closeEvent(QCloseEvent *event)
+{
+	saveSettings();
+	QMainWindow::closeEvent(event);
+}

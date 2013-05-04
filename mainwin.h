@@ -44,10 +44,14 @@ class MainWin : public QMainWindow
 	bool lockDevice();
 	void unlockDevice();
 
+	QTimer *settingsTimer;
+	void closeEvent(QCloseEvent *event);
+
 	public:
 	MainWin(QString path);
 
 	bool eventFilter(QObject *obj, QEvent *event);
+	void saveSettingsLater();
 
 	public slots:
 	void doConnect();
@@ -59,6 +63,7 @@ class MainWin : public QMainWindow
 	void splitterMoved(int pos, int index);
 	void saveImage();
 	void fileSelected(const QString &file);
+	void saveSettings();
 };
 
 #endif

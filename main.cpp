@@ -40,6 +40,9 @@ int main(int argc, char *argv[])
 	if (path.isEmpty())
 		path = "/dev/tty?";
 
+	QCoreApplication::setOrganizationDomain("github.com/mslusarz/qthermcam");
+	QCoreApplication::setApplicationName("QThermCam");
+
 	MainWin win(path);
 	win.show();
 	return app.exec();
