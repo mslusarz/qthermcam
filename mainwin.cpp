@@ -307,7 +307,7 @@ bool MainWin::lockDevice()
 	QFileInfo deviceInfo(devicePath);
 	if (!deviceInfo.exists())
 	{
-		log(devicePath + ": device does not exist");
+		logError(devicePath + ": device does not exist");
 		return false;
 	}
 
@@ -321,7 +321,7 @@ bool MainWin::lockDevice()
 		lfd = open(lockfilePathLocal.constData(), O_RDONLY);
 		if (lfd == -1)
 		{
-			log("cannot open lock file " + lockFilePath + ": " + QString(strerror(errno)));
+			logError("cannot open lock file " + lockFilePath + ": " + QString(strerror(errno)));
 			return false;
 		}
 
@@ -329,7 +329,7 @@ bool MainWin::lockDevice()
 		r = read(lfd, buf, 100);
 		if (r < 0)
 		{
-			log("cannot read from lock file " + lockFilePath + ": " + QString(strerror(errno)));
+			logError("cannot read from lock file " + lockFilePath + ": " + QString(strerror(errno)));
 			::close(lfd);
 			return false;
 		}
@@ -341,7 +341,7 @@ bool MainWin::lockDevice()
 		{
 			if (unlink(lockfilePathLocal.constData()))
 			{
-				log("cannot remove stale lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
+				logError("cannot remove stale lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
 				return false;
 			}
 			// clean state
@@ -353,14 +353,14 @@ bool MainWin::lockDevice()
 			{
 				if (unlink(lockfilePathLocal.constData()))
 				{
-					log("cannot remove stale lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
+					logError("cannot remove stale lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
 					return false;
 				}
 				// clean state
 			}
 			else
 			{
-				log("device is locked by process " + QString::number(pid));
+				logError("device is locked by process " + QString::number(pid));
 				return false;
 			}
 		}
@@ -369,7 +369,7 @@ bool MainWin::lockDevice()
 	lfd = open(lockfilePathLocal.constData(), O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IRGRP | S_IROTH);
 	if (lfd == -1)
 	{
-		log("cannot open lock file " + lockFilePath + ": " + QString(strerror(errno)));
+		logError("cannot open lock file " + lockFilePath + ": " + QString(strerror(errno)));
 		return false;
 	}
 	char buf[100];
@@ -379,10 +379,10 @@ bool MainWin::lockDevice()
 	r = write(lfd, buf, len);
 	if (r != len)
 	{
-		log("cannot write to lock file " + lockFilePath + ": " + QString(strerror(errno)));
+		logError("cannot write to lock file " + lockFilePath + ": " + QString(strerror(errno)));
 		::close(lfd);
 		if (unlink(lockfilePathLocal.constData()))
-			log("cannot remove lock file! " + QString(strerror(errno)));
+			logError("cannot remove lock file! " + QString(strerror(errno)));
 		return false;
 	}
 
@@ -403,14 +403,14 @@ void MainWin::unlockDevice()
 
 	if (!lockFileInfo.exists())
 	{
-		log("someone unlocked the device behind our back");
+		logError("someone unlocked the device behind our back");
 		return;
 	}
 
 	lfd = open(lockfilePathLocal.constData(), O_RDONLY);
 	if (lfd == -1)
 	{
-		log("cannot open lock file " + lockFilePath + ": " + QString(strerror(errno)));
+		logError("cannot open lock file " + lockFilePath + ": " + QString(strerror(errno)));
 		return;
 	}
 
@@ -418,7 +418,7 @@ void MainWin::unlockDevice()
 	r = read(lfd, buf, 100);
 	if (r < 0)
 	{
-		log("cannot read from lock file " + lockFilePath + ": " + QString(strerror(errno)));
+		logError("cannot read from lock file " + lockFilePath + ": " + QString(strerror(errno)));
 		::close(lfd);
 		return;
 	}
@@ -429,17 +429,17 @@ void MainWin::unlockDevice()
 	if (pid <= 0)
 	{
 		if (unlink(lockfilePathLocal.constData()))
-			log("cannot remove stale lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
+			logError("cannot remove stale lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
 	}
 	else
 	{
 		if (pid == getpid())
 		{
 			if (unlink(lockfilePathLocal.constData()))
-				log("cannot remove lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
+				logError("cannot remove lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
 		}
 		else
-			log("someone unlocked the device behind our back AND locked it, new process is " + QString::number(pid));
+			logError("someone unlocked the device behind our back AND locked it, new process is " + QString::number(pid));
 	}
 }
 
@@ -456,7 +456,7 @@ void MainWin::doConnect()
 	fd = open(pathLocal.constData(), O_RDWR | O_NOCTTY); // +O_NONBLOCK?
 	if (fd == -1)
 	{
-		log(path + ": " + QString(strerror(errno)));
+		logError(path + ": " + QString(strerror(errno)));
 		return;
 	}
 
@@ -464,7 +464,7 @@ void MainWin::doConnect()
 
 	if (tcgetattr(fd, &argp))
 	{
-		log(path + " tcgetattr: " + QString(strerror(errno)));
+		logError(path + " tcgetattr: " + QString(strerror(errno)));
 		::close(fd);
 		fd = -1;
 		return;
@@ -491,7 +491,7 @@ void MainWin::doConnect()
 
 	if (tcsetattr(fd, TCSANOW, &argp))
 	{
-		log(path + " tcsetattr: " + QString(strerror(errno)));
+		logError(path + " tcsetattr: " + QString(strerror(errno)));
 		::close(fd);
 		fd = -1;
 		return;
@@ -559,9 +559,12 @@ void MainWin::fdActivated(int)
 		if (c == '\n')
 		{
 			QString msg = QString(buffer);
-			log("line: " + msg);
+			if (msg.startsWith("E"))
+				logError("line: " + msg);
+			else
+				log("line: " + msg);
 			if (!msg.startsWith("I") && !msg.startsWith("E"))
-				log("above message has invalid format!");
+				logError("above message has invalid format!");
 			else if (msg.startsWith("Idims:"))
 			{
 				QStringList dims = msg.split(":").takeLast().split(",");
@@ -642,7 +645,7 @@ void MainWin::fdActivated(int)
 					}
 				}
 				else
-					log("invalid temp format");
+					logError("invalid temp format");
 			}
 			else if (msg.startsWith("Isetup finished"))
 			{
@@ -659,9 +662,9 @@ void MainWin::sendCommand(QString cmd)
 {
 	int r = write(fd, cmd.toAscii().constData(), cmd.length());
 	if (r == 0)
-		log("cannot send command");
+		logError("cannot send command");
 	else if (r < 0)
-		log("write: " + QString(strerror(errno)));
+		logError("write: " + QString(strerror(errno)));
 	else
 		log(QString("command '%1' sent: %2").arg(cmd).arg(r));
 }
@@ -807,7 +810,7 @@ void MainWin::imageFileSelected(const QString &file)
 	if (tempView->pixmap()->save(file))
 		log(QString("file %1 saved").arg(file));
 	else
-		log(QString("saving to file %1 failed").arg(file));
+		logError(QString("saving to file %1 failed").arg(file));
 }
 
 void MainWin::saveSettings()
