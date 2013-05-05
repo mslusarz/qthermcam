@@ -2,6 +2,9 @@
 #define TEMPVIEW_H_
 
 #include <QLabel>
+#include <QHash>
+#include <QPoint>
+#include <QSize>
 
 class TempView : public QLabel
 {
@@ -13,6 +16,7 @@ class TempView : public QLabel
 	QImage *cacheImage;
 	int xhighlight, yhighlight;
 	QPoint getPoint(QMouseEvent *event);
+	QHash<QPoint, QSize> showPoints;
 
 public:
 	TempView(QWidget *parent = 0, Qt::WindowFlags f = 0);

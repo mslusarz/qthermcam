@@ -22,6 +22,11 @@
 #include <QPainter>
 #include <QDomDocument>
 
+static uint qHash(const QPoint &p)
+{
+	return (p.x() << 16) + p.y();
+}
+
 TempView::TempView(QWidget *parent, Qt::WindowFlags f) : QLabel(parent, f), buffer(NULL), tmin(999),
 	tmax(-999), xmin(0), xmax(0), ymin(0), ymax(0), dataWidth(0), dataHeight(0), cacheImage(NULL),
 	xhighlight(-1), yhighlight(-1)
@@ -48,6 +53,8 @@ void TempView::setBuffer(int _xmin, int _xmax, int _ymin, int _ymax)
 	tmin = 999;
 	tmax = -999;
 
+	showPoints.clear();
+
 	if (cacheImage)
 	{
 		delete cacheImage;
@@ -67,6 +74,8 @@ void TempView::setTemperature(int x, int y, float temp)
 	tmin = qMin(tmin, temp);
 	tmax = qMax(tmax, temp);
 	buffer[dataWidth * (y - ymin) + (x - xmin)] = temp;
+	if (showPoints.contains(QPoint(x, y)))
+		showPoints[QPoint(x, y)] = QSize();
 }
 
 static QRgb getColor(int level)
@@ -112,23 +121,63 @@ void TempView::refreshView()
 	else
 		tempImage = cacheImage->copy();
 
+	QPainter painter(&tempImage);
+	int xscale = tempImage.width() / dataWidth;
+	int yscale = tempImage.height() / dataHeight;
+
 	// highlight "point"
 	int image_xhighlight = xhighlight - xmin;
 	int image_yhighlight = yhighlight - ymin;
 	if (image_xhighlight >= 0 && image_xhighlight < dataWidth &&
 		image_yhighlight >= 0 && image_yhighlight < dataHeight)
 	{
-		int xscale = tempImage.width() / dataWidth;
-		int yscale = tempImage.height() / dataHeight;
 		int wrect = xscale - 1;
 		int hrect = yscale - 1;
 		if (wrect == 0)
 			wrect++;
 		if (hrect == 0)
 			hrect++;
-		QPainter p(&tempImage);
-		p.setPen(QColor(255,255,255));
-		p.drawRect(image_xhighlight * xscale, tempImage.height() - (image_yhighlight + 1) * yscale, wrect, hrect);
+		painter.setPen(QColor(255,255,255));
+		painter.drawRect(image_xhighlight * xscale, tempImage.height() - (image_yhighlight + 1) * yscale, wrect, hrect);
+	}
+
+	if (!showPoints.isEmpty())
+	{
+		painter.setPen(QColor(0, 0, 0));
+		painter.setBrush(Qt::SolidPattern);
+	}
+
+	for(QHash<QPoint, QSize>::iterator ps = showPoints.begin(); ps != showPoints.end(); ++ps)
+	{
+		const QPoint &p = ps.key();
+		QSize &s = ps.value();
+		QPoint imagePoint((p.x() - xmin) * xscale + xscale / 2, tempImage.height() - (p.y() - ymin) * yscale - yscale / 2);
+		QString text = QString::number(buffer[(p.y() - ymin) * dataWidth + p.x() - xmin]);
+
+		painter.drawEllipse(imagePoint, 1, 1);
+
+		if (!s.isValid())
+		{
+			QRect rect;
+			painter.drawText(QRect(tempImage.width() + 100, 0, 1, 1), Qt::AlignLeft, text, &rect);
+			s.setWidth(rect.width());
+			s.setHeight(rect.height());
+		}
+
+		const int XOFFSET = 5;
+		imagePoint.rx() += XOFFSET;
+		imagePoint.ry() += s.height() / 2;
+
+		if (imagePoint.x() + s.width() >= tempImage.width())
+			imagePoint.setX(imagePoint.x() - s.width() - XOFFSET * 2);
+
+		if (imagePoint.y() - s.height() < 0)
+			imagePoint.setY(s.height());
+
+		if (imagePoint.y() + 2 >= tempImage.height())
+			imagePoint.setY(tempImage.height() - 2);
+
+		painter.drawText(imagePoint, text);
 	}
 
 	setPixmap(QPixmap::fromImage(tempImage));
@@ -186,6 +235,20 @@ void TempView::mousePressEvent(QMouseEvent *event)
 		}
 	}
 
+	if (event->button() == Qt::RightButton)
+	{
+		QPoint p = getPoint(event);
+		if (p.x() >= 0)
+		{
+			p += QPoint(xmin, ymin);
+			if (showPoints.contains(p))
+				showPoints.remove(p);
+			else
+				showPoints.insert(p, QSize());
+			refreshView();
+		}
+	}
+
 	QLabel::mousePressEvent(event);
 }
 
@@ -240,6 +303,17 @@ void TempView::saveToFile(const QString &file)
 		data.appendChild(row);
 	}
 	root.appendChild(data);
+
+	QDomElement show = doc.createElement("show");
+	for(QHash<QPoint, QSize>::iterator ps = showPoints.begin(); ps != showPoints.end(); ++ps)
+	{
+		const QPoint &p = ps.key();
+		QDomElement point = doc.createElement("point");
+		point.setAttribute("x", p.x());
+		point.setAttribute("y", p.y());
+		show.appendChild(point);
+	}
+	root.appendChild(show);
 
 	QFile f(file);
 	if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
@@ -338,6 +412,23 @@ void TempView::loadFromFile(const QString &file)
 		}
 
 		row = row.nextSiblingElement("row");
+	}
+
+	QDomElement show = docElem.firstChildElement("show");
+	QDomElement point = show.firstChildElement("point");
+	while (!point.isNull())
+	{
+		int x = point.attribute("x", "-1").toInt();
+		int y = point.attribute("y", "-1").toInt();
+		if (x < xmin || x > xmax || y < ymin || y > ymax)
+		{
+			emit error(QString("Invalid selection: %1 / %2").arg(x).arg(y));
+			return;
+		}
+
+		showPoints.insert(QPoint(x, y), QSize());
+
+		point = point.nextSiblingElement("point");
 	}
 
 	refreshImage(ymin, ymax);
