@@ -3,6 +3,7 @@ TARGET =
 DEPENDPATH += .
 INCLUDEPATH += .
 CONFIG += debug
+QT += xml
 
 OBJECTS_DIR=.tmp
 MOC_DIR=.tmp

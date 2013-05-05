@@ -48,8 +48,8 @@
 #include <signal.h>
 
 MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NULL), min_x(90), max_x(90), min_y(90), max_y(90),
-		x(90), y(90), temp_object(-1000), temp_ambient(-1000), scanInProgress(false), values(NULL), tempView(NULL),
-		splitter(NULL), fileDialog(NULL)
+		x(90), y(90), temp_object(-1000), temp_ambient(-1000), scanInProgress(false), tempView(NULL), splitter(NULL),
+		imageFileDialog(NULL), dataFileDialog(NULL)
 {
 	QWidget *central = new QWidget(this);
 	setCentralWidget(central);
@@ -67,15 +67,23 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 	QPushButton *clearButton = new QPushButton("Clear log", buttons);
 	connect(clearButton, SIGNAL(clicked()), this, SLOT(clearLog()));
 
+	loadButton = new QPushButton("Load data", buttons);
+	loadButton->installEventFilter(this);
+	connect(loadButton, SIGNAL(clicked()), this, SLOT(loadData()));
+
+	saveButton = new QPushButton("Save data", buttons);
+	saveButton->installEventFilter(this);
+	connect(saveButton, SIGNAL(clicked()), this, SLOT(saveData()));
+
 	scanButton = new QPushButton(buttons);
 	scanButton->setEnabled(false);
 	scanButton->installEventFilter(this);
 	stopScanning();
 
-	saveButton = new QPushButton("Save image", buttons);
-	saveButton->setEnabled(false);
-	saveButton->installEventFilter(this);
-	connect(saveButton, SIGNAL(clicked()), this, SLOT(saveImage()));
+	saveImageButton = new QPushButton("Save image", buttons);
+	saveImageButton->setEnabled(false);
+	saveImageButton->installEventFilter(this);
+	connect(saveImageButton, SIGNAL(clicked()), this, SLOT(saveImage()));
 
 	QSettings settings;
 
@@ -83,33 +91,32 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 	minX->setPrefix("Min x: ");
 	minX->setRange(0, 180);
 	minX->setEnabled(false);
-	minX->setValue(settings.value("xmin").toInt());
 
 	maxX = new QSpinBox(buttons);
 	maxX->setPrefix("Max x: ");
 	maxX->setRange(0, 180);
-	maxX->setValue(180);
 	maxX->setEnabled(false);
-	maxX->setValue(settings.value("xmax").toInt());
 
 	minY = new QSpinBox(buttons);
 	minY->setPrefix("Min y: ");
 	minY->setRange(0, 180);
 	minY->setEnabled(false);
-	minY->setValue(settings.value("ymin").toInt());
 
 	maxY = new QSpinBox(buttons);
 	maxY->setPrefix("Max y: ");
 	maxY->setRange(0, 180);
-	maxY->setValue(180);
 	maxY->setEnabled(false);
-	maxY->setValue(settings.value("ymax").toInt());
+
+	updateFOV(settings.value("xmin").toInt(), settings.value("xmax").toInt(),
+			  settings.value("ymin").toInt(), settings.value("ymax").toInt());
 
 	QHBoxLayout *buttonsLay = new QHBoxLayout();
 	buttonsLay->addWidget(connectionButton);
 	buttonsLay->addWidget(clearButton);
-	buttonsLay->addWidget(scanButton);
+	buttonsLay->addWidget(loadButton);
 	buttonsLay->addWidget(saveButton);
+	buttonsLay->addWidget(scanButton);
+	buttonsLay->addWidget(saveImageButton);
 	buttonsLay->addWidget(minX);
 	buttonsLay->addWidget(maxX);
 	buttonsLay->addWidget(minY);
@@ -130,6 +137,8 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 	tempView = new TempView();
 	splitter->addWidget(tempView);
 	connect(tempView, SIGNAL(leftMouseButtonClicked(const QPoint &)), this, SLOT(imageClicked(const QPoint &)));
+	connect(tempView, SIGNAL(error(const QString &)), this, SLOT(logError(const QString &)));
+	connect(tempView, SIGNAL(updateFOV(int, int, int, int)), this, SLOT(updateFOV(int, int, int, int)));
 
 	if (!splitter->restoreState(settings.value("splitterSizes").toByteArray()))
 	{
@@ -721,10 +730,7 @@ void MainWin::scanImage()
 {
 	QSize sz = QSize(maxX->value() - minX->value() + 1, maxY->value() - minY->value() + 1);
 
-	delete values;
-	values = new float[sz.width() * sz.height()];
-
-	tempView->setBuffer(values, minX->value(), maxX->value(), minY->value(), maxY->value());
+	tempView->setBuffer(minX->value(), maxX->value(), minY->value(), maxY->value());
 	tempView->setMinimumWidth(sz.width());
 
 	if (tempView->width() < 20)
@@ -752,7 +758,7 @@ void MainWin::scanImage()
 	connect(scanButton, SIGNAL(clicked()), this, SLOT(stopScanning()));
 	connectionButton->setEnabled(false);
 
-	saveButton->setEnabled(true);
+	saveImageButton->setEnabled(true);
 
 	scanInProgress = true;
 }
@@ -786,17 +792,17 @@ void MainWin::splitterMoved(int, int)
 
 void MainWin::saveImage()
 {
-	if (!fileDialog)
+	if (!imageFileDialog)
 	{
-		fileDialog = new QFileDialog(this, "Choose file name");
-		fileDialog->setNameFilter("All image files (*.png *.jpg *.bmp *.ppm *.tiff *.xbm *.xpm)");
+		imageFileDialog = new QFileDialog(this, "Choose file name");
+		imageFileDialog->setNameFilter("All image files (*.png *.jpg *.bmp *.ppm *.tiff *.xbm *.xpm)");
 	}
 	tempView->highlightPoint(-1, -1);
 	tempView->refreshView();
-	fileDialog->open(this, SLOT(fileSelected(const QString &)));
+	imageFileDialog->open(this, SLOT(imageFileSelected(const QString &)));
 }
 
-void MainWin::fileSelected(const QString &file)
+void MainWin::imageFileSelected(const QString &file)
 {
 	if (tempView->pixmap()->save(file))
 		log(QString("file %1 saved").arg(file));
@@ -836,4 +842,48 @@ void MainWin::imageClicked(const QPoint &p)
 		return;
 	moveX(p.x());
 	moveY(p.y());
+}
+
+void MainWin::prepareDataFileDialog()
+{
+	if (!dataFileDialog)
+	{
+		dataFileDialog = new QFileDialog(this, "Choose file name");
+		dataFileDialog->setNameFilter("QThermCam data files (*.qtcd)");
+	}
+}
+
+void MainWin::loadData()
+{
+	prepareDataFileDialog();
+	dataFileDialog->open(this, SLOT(loadDataFileSelected(const QString &)));
+}
+
+void MainWin::saveData()
+{
+	prepareDataFileDialog();
+	dataFileDialog->open(this, SLOT(saveDataFileSelected(const QString &)));
+}
+
+void MainWin::loadDataFileSelected(const QString &file)
+{
+	tempView->loadFromFile(file);
+}
+
+void MainWin::saveDataFileSelected(const QString &file)
+{
+	tempView->saveToFile(file);
+}
+
+void MainWin::logError(const QString &msg)
+{
+	log("<b><font color=\"red\">" + msg + "</font></b>");
+}
+
+void MainWin::updateFOV(int xmin, int xmax, int ymin, int ymax)
+{
+	minX->setValue(xmin);
+	maxX->setValue(xmax);
+	minY->setValue(ymin);
+	maxY->setValue(ymax);
 }

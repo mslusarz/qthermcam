@@ -17,7 +17,7 @@ class TempView;
 class MainWin : public QMainWindow
 {
 	Q_OBJECT
-	QPushButton *connectionButton, *scanButton, *saveButton;
+	QPushButton *connectionButton, *loadButton, *saveButton, *scanButton, *saveImageButton;
 	QLineEdit *pathEdit;
 	QTextEdit *textEdit;
 	QSpinBox *minX, *maxX, *minY, *maxY;
@@ -35,10 +35,9 @@ class MainWin : public QMainWindow
 	void moveY(int newPos);
 	void resetStatusBar();
 	bool scanInProgress;
-	float *values;
 	TempView *tempView;
 	QSplitter *splitter;
-	QFileDialog *fileDialog;
+	QFileDialog *imageFileDialog, *dataFileDialog;
 	void dumpTermiosInfo(const struct termios &argp);
 
 	bool lockDevice();
@@ -46,6 +45,7 @@ class MainWin : public QMainWindow
 
 	QTimer *settingsTimer;
 	void closeEvent(QCloseEvent *event);
+	void prepareDataFileDialog();
 
 	public:
 	MainWin(QString path);
@@ -62,9 +62,15 @@ class MainWin : public QMainWindow
 	void clearLog();
 	void splitterMoved(int pos, int index);
 	void saveImage();
-	void fileSelected(const QString &file);
+	void imageFileSelected(const QString &file);
 	void saveSettings();
 	void imageClicked(const QPoint &p);
+	void loadData();
+	void saveData();
+	void loadDataFileSelected(const QString &file);
+	void saveDataFileSelected(const QString &file);
+	void logError(const QString &msg);
+	void updateFOV(int xmin, int xmax, int ymin, int ymax);
 };
 
 #endif

@@ -20,6 +20,7 @@
 #include <QMouseEvent>
 #include <QToolTip>
 #include <QPainter>
+#include <QDomDocument>
 
 TempView::TempView(QWidget *parent, Qt::WindowFlags f) : QLabel(parent, f), buffer(NULL), tmin(999),
 	tmax(-999), xmin(0), xmax(0), ymin(0), ymax(0), dataWidth(0), dataHeight(0), cacheImage(NULL),
@@ -29,10 +30,8 @@ TempView::TempView(QWidget *parent, Qt::WindowFlags f) : QLabel(parent, f), buff
 	setAlignment(Qt::AlignCenter);
 }
 
-void TempView::setBuffer(float *temps, int _xmin, int _xmax, int _ymin, int _ymax)
+void TempView::setBuffer(int _xmin, int _xmax, int _ymin, int _ymax)
 {
-	buffer = temps;
-
 	xmin = _xmin;
 	xmax = _xmax;
 	ymin = _ymin;
@@ -40,6 +39,9 @@ void TempView::setBuffer(float *temps, int _xmin, int _xmax, int _ymin, int _yma
 
 	dataWidth = xmax - xmin + 1;
 	dataHeight = ymax - ymin + 1;
+
+	delete buffer;
+	buffer = new float[dataWidth * dataHeight];
 
 	for(int i = 0; i < dataWidth * dataHeight; ++i)
 		buffer[i] = -1000;
@@ -191,4 +193,147 @@ void TempView::highlightPoint(int x, int y)
 {
 	xhighlight = x;
 	yhighlight = y;
+}
+
+void TempView::saveToFile(const QString &file)
+{
+	QDomDocument doc("qtdc");
+	QDomElement root = doc.createElement("qtdc");
+	doc.appendChild(root);
+
+	QDomElement fov = doc.createElement("fov");
+	fov.setAttribute("xmin", xmin);
+	fov.setAttribute("xmax", xmax);
+	fov.setAttribute("ymin", ymin);
+	fov.setAttribute("ymax", ymax);
+	root.appendChild(fov);
+
+	QDomElement highlight = doc.createElement("highlight");
+	highlight.setAttribute("x", xhighlight);
+	highlight.setAttribute("y", yhighlight);
+	root.appendChild(highlight);
+
+	// make it easy to parse, also by external tools
+	QDomElement data = doc.createElement("data");
+	for(int y = 0; y < dataHeight; ++y)
+	{
+		QDomElement row = doc.createElement("row");
+		row.setAttribute("y", y + ymin);
+
+		for (int x = 0; x < dataWidth; ++x)
+		{
+			QDomElement col = doc.createElement("col");
+			col.setAttribute("x", x + xmin);
+			float f = buffer[y * dataWidth + x];
+			if (f == -1000)
+				col.setAttribute("val", "");
+			else
+				col.setAttribute("val", buffer[y * dataWidth + x]);
+			row.appendChild(col);
+		}
+		data.appendChild(row);
+	}
+	root.appendChild(data);
+
+	QFile f(file);
+	if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
+	{
+		emit error(QString("Cannot open file %1 for writing: %2").arg(file).arg(f.errorString()));
+		return;
+	}
+
+	qint64 r = f.write(doc.toString().toUtf8());
+	if (r == -1)
+	{
+		emit error(QString("Cannot write to file %1: %2").arg(file).arg(f.errorString()));
+		f.close();
+		return;
+	}
+
+	f.close();
+}
+
+void TempView::loadFromFile(const QString &file)
+{
+	QDomDocument doc("qtcd");
+	QFile f(file);
+
+	if (!f.open(QIODevice::ReadOnly))
+	{
+		emit error(QString("Cannot open file %1 for reading: %2").arg(file).arg(f.errorString()));
+		return;
+	}
+
+	QString err;
+	int line, col;
+	if (!doc.setContent(&f, &err, &line, &col))
+	{
+		f.close();
+		emit error(QString("Cannot parse file %1, error: %2, line: %3, col: %4").arg(file).arg(f.errorString()).arg(line).arg(col));
+		return;
+	}
+	f.close();
+
+	QDomElement docElem = doc.documentElement();
+
+	QDomElement fov = docElem.firstChildElement("fov");
+	int xmin = fov.attribute("xmin", "0").toInt();
+	int xmax = fov.attribute("xmax", "180").toInt();
+	int ymin = fov.attribute("ymin", "0").toInt();
+	int ymax = fov.attribute("ymax", "180").toInt();
+
+	emit updateFOV(xmin, xmax, ymin, ymax);
+	setBuffer(xmin, xmax, ymin, ymax);
+
+	QDomElement highlight = docElem.firstChildElement("highlight");
+	int xhl = highlight.attribute("x", "-1").toInt();
+	int yhl = highlight.attribute("y", "-1").toInt();
+
+	highlightPoint(xhl, yhl);
+
+	QDomElement data = docElem.firstChildElement("data");
+	QDomElement row = data.firstChildElement("row");
+	while (!row.isNull())
+	{
+		int y = row.attribute("y", "-1").toInt();
+		if (y < ymin || y > ymax)
+		{
+			emit error(QString("Invalid row number: %1").arg(y));
+			return;
+		}
+		QDomElement col = row.firstChildElement("col");
+		while (!col.isNull())
+		{
+			QString tstr = col.attribute("val", "");
+			QString xstr = col.attribute("x", "-1");
+
+			if (!tstr.isEmpty() && !xstr.isEmpty())
+			{
+				bool okt, okx;
+				float t = tstr.toFloat(&okt);
+				int x = xstr.toInt(&okx);
+				if (okt && okx)
+				{
+					if (x < xmin || x > xmax)
+					{
+						emit error(QString("Invalid column number: %1 in row %2").arg(x).arg(y));
+						return;
+					}
+					setTemperature(x, y, t);
+				}
+				else
+				{
+					emit error(QString("Unable to parse x or temperature in row: %1").arg(y));
+					return;
+				}
+			}
+
+			col = col.nextSiblingElement("col");
+		}
+
+		row = row.nextSiblingElement("row");
+	}
+
+	refreshImage(ymin, ymax);
+	refreshView();
 }

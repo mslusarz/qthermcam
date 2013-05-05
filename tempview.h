@@ -17,7 +17,7 @@ class TempView : public QLabel
 public:
 	TempView(QWidget *parent = 0, Qt::WindowFlags f = 0);
 
-	void setBuffer(float *temps, int xmin, int xmax, int ymin, int ymax);
+	void setBuffer(int xmin, int xmax, int ymin, int ymax);
 
 	void setTemperature(int x, int y, float temp);
 
@@ -25,10 +25,16 @@ public:
 
 	void highlightPoint(int x, int y);
 
+	void saveToFile(const QString &file);
+
+	void loadFromFile(const QString &file);
+
 public slots:
 	void refreshView();
 signals:
 	void leftMouseButtonClicked(const QPoint &p);
+	void error(const QString &s);
+	void updateFOV(int xmin, int xmax, int ymin, int ymax);
 protected:
 	void mouseMoveEvent(QMouseEvent *event);
 	void mousePressEvent(QMouseEvent *event);
