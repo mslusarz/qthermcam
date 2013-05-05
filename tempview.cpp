@@ -318,14 +318,14 @@ void TempView::saveToFile(const QString &file)
 	QFile f(file);
 	if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
 	{
-		emit error(QString("Cannot open file %1 for writing: %2").arg(file).arg(f.errorString()));
+		emit error(tr("Cannot open file %1 for writing: %2").arg(file).arg(f.errorString()));
 		return;
 	}
 
 	qint64 r = f.write(doc.toString().toUtf8());
 	if (r == -1)
 	{
-		emit error(QString("Cannot write to file %1: %2").arg(file).arg(f.errorString()));
+		emit error(tr("Cannot write to file %1: %2").arg(file).arg(f.errorString()));
 		f.close();
 		return;
 	}
@@ -340,7 +340,7 @@ void TempView::loadFromFile(const QString &file)
 
 	if (!f.open(QIODevice::ReadOnly))
 	{
-		emit error(QString("Cannot open file %1 for reading: %2").arg(file).arg(f.errorString()));
+		emit error(tr("Cannot open file %1 for reading: %2").arg(file).arg(f.errorString()));
 		return;
 	}
 
@@ -349,7 +349,7 @@ void TempView::loadFromFile(const QString &file)
 	if (!doc.setContent(&f, &err, &line, &col))
 	{
 		f.close();
-		emit error(QString("Cannot parse file %1, error: %2, line: %3, col: %4").arg(file).arg(f.errorString()).arg(line).arg(col));
+		emit error(tr("Cannot parse file %1, error: %2, line: %3, col: %4").arg(file).arg(f.errorString()).arg(line).arg(col));
 		return;
 	}
 	f.close();
@@ -396,14 +396,14 @@ void TempView::loadFromFile(const QString &file)
 				{
 					if (x < xmin || x > xmax)
 					{
-						emit error(QString("Invalid column number: %1 in row %2").arg(x).arg(y));
+						emit error(tr("Invalid column number: %1 in row %2").arg(x).arg(y));
 						return;
 					}
 					setTemperature(x, y, t);
 				}
 				else
 				{
-					emit error(QString("Unable to parse x or temperature in row: %1").arg(y));
+					emit error(tr("Unable to parse x or temperature in row: %1").arg(y));
 					return;
 				}
 			}
@@ -422,7 +422,7 @@ void TempView::loadFromFile(const QString &file)
 		int y = point.attribute("y", "-1").toInt();
 		if (x < xmin || x > xmax || y < ymin || y > ymax)
 		{
-			emit error(QString("Invalid selection: %1 / %2").arg(x).arg(y));
+			emit error(tr("Invalid selection: %1 / %2").arg(x).arg(y));
 			return;
 		}
 

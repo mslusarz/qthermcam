@@ -60,18 +60,18 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 
 	QWidget *buttons = new QWidget(central);
 
-	connectionButton = new QPushButton("Connect to device", buttons);
+	connectionButton = new QPushButton(tr("Connect to device"), buttons);
 	connectionButton->installEventFilter(this);
 	connect(connectionButton,    SIGNAL(clicked()), this, SLOT(doConnect()));
 
-	QPushButton *clearButton = new QPushButton("Clear log", buttons);
+	QPushButton *clearButton = new QPushButton(tr("Clear log"), buttons);
 	connect(clearButton, SIGNAL(clicked()), this, SLOT(clearLog()));
 
-	loadButton = new QPushButton("Load data", buttons);
+	loadButton = new QPushButton(tr("Load data"), buttons);
 	loadButton->installEventFilter(this);
 	connect(loadButton, SIGNAL(clicked()), this, SLOT(loadData()));
 
-	saveButton = new QPushButton("Save data", buttons);
+	saveButton = new QPushButton(tr("Save data"), buttons);
 	saveButton->installEventFilter(this);
 	connect(saveButton, SIGNAL(clicked()), this, SLOT(saveData()));
 
@@ -80,7 +80,7 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 	scanButton->installEventFilter(this);
 	stopScanning();
 
-	saveImageButton = new QPushButton("Save image", buttons);
+	saveImageButton = new QPushButton(tr("Save image"), buttons);
 	saveImageButton->setEnabled(false);
 	saveImageButton->installEventFilter(this);
 	connect(saveImageButton, SIGNAL(clicked()), this, SLOT(saveImage()));
@@ -88,22 +88,22 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 	QSettings settings;
 
 	minX = new QSpinBox(buttons);
-	minX->setPrefix("Min x: ");
+	minX->setPrefix(tr("Min x: "));
 	minX->setRange(0, 180);
 	minX->setEnabled(false);
 
 	maxX = new QSpinBox(buttons);
-	maxX->setPrefix("Max x: ");
+	maxX->setPrefix(tr("Max x: "));
 	maxX->setRange(0, 180);
 	maxX->setEnabled(false);
 
 	minY = new QSpinBox(buttons);
-	minY->setPrefix("Min y: ");
+	minY->setPrefix(tr("Min y: "));
 	minY->setRange(0, 180);
 	minY->setEnabled(false);
 
 	maxY = new QSpinBox(buttons);
-	maxY->setPrefix("Max y: ");
+	maxY->setPrefix(tr("Max y: "));
 	maxY->setRange(0, 180);
 	maxY->setEnabled(false);
 
@@ -307,7 +307,7 @@ bool MainWin::lockDevice()
 	QFileInfo deviceInfo(devicePath);
 	if (!deviceInfo.exists())
 	{
-		logError(devicePath + ": device does not exist");
+		logError(tr("%1: device does not exist").arg(devicePath));
 		return false;
 	}
 
@@ -321,7 +321,7 @@ bool MainWin::lockDevice()
 		lfd = open(lockfilePathLocal.constData(), O_RDONLY);
 		if (lfd == -1)
 		{
-			logError("cannot open lock file " + lockFilePath + ": " + QString(strerror(errno)));
+			logError(tr("cannot open lock file %1: %2").arg(lockFilePath).arg(strerror(errno)));
 			return false;
 		}
 
@@ -329,7 +329,7 @@ bool MainWin::lockDevice()
 		r = read(lfd, buf, 100);
 		if (r < 0)
 		{
-			logError("cannot read from lock file " + lockFilePath + ": " + QString(strerror(errno)));
+			logError(tr("Cannot read from lock file %1: %2").arg(lockFilePath).arg(strerror(errno)));
 			::close(lfd);
 			return false;
 		}
@@ -341,7 +341,7 @@ bool MainWin::lockDevice()
 		{
 			if (unlink(lockfilePathLocal.constData()))
 			{
-				logError("cannot remove stale lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
+				logError(tr("Cannot remove stale lock file %1: %2").arg(lockfilePathLocal.constData()).arg(strerror(errno)));
 				return false;
 			}
 			// clean state
@@ -353,14 +353,14 @@ bool MainWin::lockDevice()
 			{
 				if (unlink(lockfilePathLocal.constData()))
 				{
-					logError("cannot remove stale lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
+					logError(tr("Cannot remove stale lock file %1: %2").arg(lockfilePathLocal.constData()).arg(strerror(errno)));
 					return false;
 				}
 				// clean state
 			}
 			else
 			{
-				logError("device is locked by process " + QString::number(pid));
+				logError(tr("Device is locked by process %1").arg(pid));
 				return false;
 			}
 		}
@@ -369,7 +369,7 @@ bool MainWin::lockDevice()
 	lfd = open(lockfilePathLocal.constData(), O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IRGRP | S_IROTH);
 	if (lfd == -1)
 	{
-		logError("cannot open lock file " + lockFilePath + ": " + QString(strerror(errno)));
+		logError(tr("Cannot open lock file %1: %2").arg(lockFilePath).arg(strerror(errno)));
 		return false;
 	}
 	char buf[100];
@@ -379,10 +379,10 @@ bool MainWin::lockDevice()
 	r = write(lfd, buf, len);
 	if (r != len)
 	{
-		logError("cannot write to lock file " + lockFilePath + ": " + QString(strerror(errno)));
+		logError(tr("Cannot write to lock file %1: %2").arg(lockFilePath).arg(strerror(errno)));
 		::close(lfd);
 		if (unlink(lockfilePathLocal.constData()))
-			logError("cannot remove lock file! " + QString(strerror(errno)));
+			logError(tr("Cannot remove lock file! %1").arg(strerror(errno)));
 		return false;
 	}
 
@@ -403,14 +403,14 @@ void MainWin::unlockDevice()
 
 	if (!lockFileInfo.exists())
 	{
-		logError("someone unlocked the device behind our back");
+		logError(tr("Someone unlocked the device behind our back!"));
 		return;
 	}
 
 	lfd = open(lockfilePathLocal.constData(), O_RDONLY);
 	if (lfd == -1)
 	{
-		logError("cannot open lock file " + lockFilePath + ": " + QString(strerror(errno)));
+		logError(tr("Cannot open lock file %1: %2").arg(lockFilePath).arg(strerror(errno)));
 		return;
 	}
 
@@ -418,7 +418,7 @@ void MainWin::unlockDevice()
 	r = read(lfd, buf, 100);
 	if (r < 0)
 	{
-		logError("cannot read from lock file " + lockFilePath + ": " + QString(strerror(errno)));
+		logError(tr("Cannot read from lock file %1: %2").arg(lockFilePath).arg(strerror(errno)));
 		::close(lfd);
 		return;
 	}
@@ -429,17 +429,17 @@ void MainWin::unlockDevice()
 	if (pid <= 0)
 	{
 		if (unlink(lockfilePathLocal.constData()))
-			logError("cannot remove stale lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
+			logError(tr("Cannot remove stale lock file %1: %2").arg(lockfilePathLocal.constData()).arg(strerror(errno)));
 	}
 	else
 	{
 		if (pid == getpid())
 		{
 			if (unlink(lockfilePathLocal.constData()))
-				logError("cannot remove lock file " + lockfilePathLocal + ": " + QString(strerror(errno)));
+				logError(tr("Cannot remove lock file %1: %2").arg(lockfilePathLocal.constData()).arg(strerror(errno)));
 		}
 		else
-			logError("someone unlocked the device behind our back AND locked it, new process is " + QString::number(pid));
+			logError(tr("Someone unlocked the device behind our back AND locked it, new process is %1").arg(pid));
 	}
 }
 
@@ -447,7 +447,7 @@ void MainWin::doConnect()
 {
 	QString path = pathEdit->text();
 
-	log(path + ": connecting");
+	log(tr("%1: connecting").arg(path));
 
 	if (!lockDevice())
 		return;
@@ -470,7 +470,7 @@ void MainWin::doConnect()
 		return;
 	}
 
-	log("current port settings: ");
+	log(tr("Current port settings:"));
 	dumpTermiosInfo(argp);
 
 	argp.c_iflag = 0;
@@ -497,13 +497,13 @@ void MainWin::doConnect()
 		return;
 	}
 
-	log(path + ": connected");
-	statusBar()->showMessage("connected");
+	log(tr("%1: connected").arg(path));
+	statusBar()->showMessage(tr("connected"));
 
 	notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
 	connect(notifier, SIGNAL(activated(int)), this, SLOT(fdActivated(int)));
 
-	connectionButton->setText("Disconnect from device");
+	connectionButton->setText(tr("Disconnect from device"));
 	disconnect(connectionButton, SIGNAL(clicked()), this, SLOT(doConnect()));
 	connect(connectionButton, SIGNAL(clicked()), this, SLOT(doDisconnect()));
 
@@ -524,7 +524,7 @@ void MainWin::doDisconnect()
 	fd = -1;
 	unlockDevice();
 
-	connectionButton->setText("Connect to device");
+	connectionButton->setText(tr("Connect to device"));
 	disconnect(connectionButton, SIGNAL(clicked()), this, SLOT(doDisconnect()));
 	connect(connectionButton, SIGNAL(clicked()), this, SLOT(doConnect()));
 
@@ -535,8 +535,8 @@ void MainWin::doDisconnect()
 	minY->setEnabled(false);
 	maxY->setEnabled(false);
 
-	log(pathEdit->text() + ": disconnected");
-	statusBar()->showMessage("disconnected");
+	log(tr("%1: disconnected").arg(pathEdit->text()));
+	statusBar()->showMessage(tr("disconnected"));
 }
 
 void MainWin::clearLog()
@@ -546,7 +546,7 @@ void MainWin::clearLog()
 
 void MainWin::resetStatusBar()
 {
-	statusBar()->showMessage(QString("x: %1, y: %2, object: %3, ambient: %4")
+	statusBar()->showMessage(tr("x: %1, y: %2, object: %3, ambient: %4")
 			.arg(x).arg(y).arg(temp_object).arg(temp_ambient));
 }
 
@@ -560,11 +560,11 @@ void MainWin::fdActivated(int)
 		{
 			QString msg = QString(buffer);
 			if (msg.startsWith("E"))
-				logError("line: " + msg);
+				logError(tr("Line: %1").arg(msg));
 			else
-				log("line: " + msg);
+				log(tr("Line: %1").arg(msg));
 			if (!msg.startsWith("I") && !msg.startsWith("E"))
-				logError("above message has invalid format!");
+				logError(tr("Above message has invalid format!"));
 			else if (msg.startsWith("Idims:"))
 			{
 				QStringList dims = msg.split(":").takeLast().split(",");
@@ -645,7 +645,7 @@ void MainWin::fdActivated(int)
 					}
 				}
 				else
-					logError("invalid temp format");
+					logError(tr("Invalid temp format"));
 			}
 			else if (msg.startsWith("Isetup finished"))
 			{
@@ -662,11 +662,11 @@ void MainWin::sendCommand(QString cmd)
 {
 	int r = write(fd, cmd.toAscii().constData(), cmd.length());
 	if (r == 0)
-		logError("cannot send command");
+		logError(tr("Cannot send command"));
 	else if (r < 0)
-		logError("write: " + QString(strerror(errno)));
+		logError(tr("write: %1").arg(strerror(errno)));
 	else
-		log(QString("command '%1' sent: %2").arg(cmd).arg(r));
+		log(tr("Command '%1' sent: %2").arg(cmd).arg(r));
 }
 
 void MainWin::moveX(int newPos)
@@ -757,7 +757,7 @@ void MainWin::scanImage()
 	readObjectTemp();
 
 	disconnect(scanButton, SIGNAL(clicked()), this, SLOT(scanImage()));
-	scanButton->setText("Stop scanning");
+	scanButton->setText(tr("Stop scanning"));
 	connect(scanButton, SIGNAL(clicked()), this, SLOT(stopScanning()));
 	connectionButton->setEnabled(false);
 
@@ -772,7 +772,7 @@ void MainWin::stopScanning()
 
 	connectionButton->setEnabled(true);
 	connect(scanButton, SIGNAL(clicked()), this, SLOT(scanImage()));
-	scanButton->setText("Scan image");
+	scanButton->setText(tr("Scan image"));
 	if (splitter)
 		splitter->setCollapsible(1, true);
 	if (tempView)
@@ -797,8 +797,8 @@ void MainWin::saveImage()
 {
 	if (!imageFileDialog)
 	{
-		imageFileDialog = new QFileDialog(this, "Choose file name");
-		imageFileDialog->setNameFilter("All image files (*.png *.jpg *.bmp *.ppm *.tiff *.xbm *.xpm)");
+		imageFileDialog = new QFileDialog(this, tr("Choose file name"));
+		imageFileDialog->setNameFilter(tr("All image files (*.png *.jpg *.bmp *.ppm *.tiff *.xbm *.xpm)"));
 	}
 	tempView->highlightPoint(-1, -1);
 	tempView->refreshView();
@@ -808,9 +808,9 @@ void MainWin::saveImage()
 void MainWin::imageFileSelected(const QString &file)
 {
 	if (tempView->pixmap()->save(file))
-		log(QString("file %1 saved").arg(file));
+		log(tr("File %1 saved").arg(file));
 	else
-		logError(QString("saving to file %1 failed").arg(file));
+		logError(tr("Saving to file %1 failed").arg(file));
 }
 
 void MainWin::saveSettings()
@@ -851,8 +851,8 @@ void MainWin::prepareDataFileDialog()
 {
 	if (!dataFileDialog)
 	{
-		dataFileDialog = new QFileDialog(this, "Choose file name");
-		dataFileDialog->setNameFilter("QThermCam data files (*.qtcd)");
+		dataFileDialog = new QFileDialog(this, tr("Choose file name"));
+		dataFileDialog->setNameFilter(tr("QThermCam data files (*.qtcd)"));
 	}
 }
 
