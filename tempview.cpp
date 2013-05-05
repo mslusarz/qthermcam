@@ -189,6 +189,12 @@ void TempView::mousePressEvent(QMouseEvent *event)
 	QLabel::mousePressEvent(event);
 }
 
+void TempView::resizeEvent(QResizeEvent *event)
+{
+	refreshView();
+	QLabel::resizeEvent(event);
+}
+
 void TempView::highlightPoint(int x, int y)
 {
 	xhighlight = x;

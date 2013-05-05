@@ -38,6 +38,7 @@ signals:
 protected:
 	void mouseMoveEvent(QMouseEvent *event);
 	void mousePressEvent(QMouseEvent *event);
+	void resizeEvent(QResizeEvent *event);
 };
 
 
