@@ -3,7 +3,6 @@
 
 #include <QMainWindow>
 
-class QPushButton;
 class QSocketNotifier;
 class QLineEdit;
 class QTextEdit;
@@ -13,11 +12,19 @@ class QSplitter;
 class QFileDialog;
 struct termios;
 class TempView;
+class QAction;
+class QToolBar;
 
 class MainWin : public QMainWindow
 {
 	Q_OBJECT
-	QPushButton *connectionButton, *loadButton, *saveButton, *scanButton, *saveImageButton;
+	QToolBar *fileToolbar, *deviceToolbar;
+	QMenu *fileMenu, *deviceMenu, *helpMenu;
+
+	QAction *connectAction, *disconnectAction, *scanAction, *stopScanAction;
+	QAction *loadAction, *saveAction, *saveImageAction;
+	QAction *exitAction, *aboutAction, *aboutQtAction, *clearLogAction;
+
 	QLineEdit *pathEdit;
 	QTextEdit *textEdit;
 	QSpinBox *minX, *maxX, *minY, *maxY;
@@ -47,6 +54,11 @@ class MainWin : public QMainWindow
 	void closeEvent(QCloseEvent *event);
 	void prepareDataFileDialog();
 
+	void createActions();
+	void createMenus();
+	void createToolBar();
+	void createStatusBar();
+
 	public:
 	MainWin(QString path);
 
@@ -71,6 +83,7 @@ class MainWin : public QMainWindow
 	void saveDataFileSelected(const QString &file);
 	void logError(const QString &msg);
 	void updateFOV(int xmin, int xmax, int ymin, int ymax);
+	void about();
 };
 
 #endif

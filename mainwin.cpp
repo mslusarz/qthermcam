@@ -36,6 +36,9 @@
 #include <QFileInfo>
 #include <QTimer>
 #include <QSettings>
+#include <QToolBar>
+#include <QAction>
+#include <QMenuBar>
 
 #include "tempview.h"
 
@@ -51,88 +54,65 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 		x(90), y(90), temp_object(-1000), temp_ambient(-1000), scanInProgress(false), tempView(NULL), splitter(NULL),
 		imageFileDialog(NULL), dataFileDialog(NULL)
 {
-	QWidget *central = new QWidget(this);
-	setCentralWidget(central);
-	pathEdit = new QLineEdit(path, central);
-	pathEdit->installEventFilter(this);
-	QVBoxLayout *centralLay = new QVBoxLayout();
-	centralLay->addWidget(pathEdit);
-
-	QWidget *buttons = new QWidget(central);
-
-	connectionButton = new QPushButton(tr("Connect to device"), buttons);
-	connectionButton->installEventFilter(this);
-	connect(connectionButton,    SIGNAL(clicked()), this, SLOT(doConnect()));
-
-	QPushButton *clearButton = new QPushButton(tr("Clear log"), buttons);
-	connect(clearButton, SIGNAL(clicked()), this, SLOT(clearLog()));
-
-	loadButton = new QPushButton(tr("Load data"), buttons);
-	loadButton->installEventFilter(this);
-	connect(loadButton, SIGNAL(clicked()), this, SLOT(loadData()));
-
-	saveButton = new QPushButton(tr("Save data"), buttons);
-	saveButton->installEventFilter(this);
-	connect(saveButton, SIGNAL(clicked()), this, SLOT(saveData()));
-
-	scanButton = new QPushButton(buttons);
-	scanButton->setEnabled(false);
-	scanButton->installEventFilter(this);
-	stopScanning();
-
-	saveImageButton = new QPushButton(tr("Save image"), buttons);
-	saveImageButton->setEnabled(false);
-	saveImageButton->installEventFilter(this);
-	connect(saveImageButton, SIGNAL(clicked()), this, SLOT(saveImage()));
-
 	QSettings settings;
 
-	minX = new QSpinBox(buttons);
-	minX->setPrefix(tr("Min x: "));
+	createActions();
+	createMenus();
+	createToolBar();
+	createStatusBar();
+
+	QFrame *leftPanel = new QFrame(this);
+	leftPanel->setFrameShape(QFrame::StyledPanel);
+	QGridLayout *leftPanelLayout = new QGridLayout(leftPanel);
+
+	leftPanelLayout->addWidget(new QLabel(tr("Path"),  leftPanel), 0, 0, Qt::AlignRight);
+	leftPanelLayout->addWidget(new QLabel(tr("Min X"), leftPanel), 1, 0, Qt::AlignRight);
+	leftPanelLayout->addWidget(new QLabel(tr("Max X"), leftPanel), 2, 0, Qt::AlignRight);
+	leftPanelLayout->addWidget(new QLabel(tr("Min Y"), leftPanel), 3, 0, Qt::AlignRight);
+	leftPanelLayout->addWidget(new QLabel(tr("Max Y"), leftPanel), 4, 0, Qt::AlignRight);
+
+	pathEdit = new QLineEdit(path, leftPanel);
+	pathEdit->installEventFilter(this);
+	leftPanelLayout->addWidget(pathEdit, 0, 1);
+
+	stopScanning();
+
+	scanAction->setEnabled(false);
+	disconnectAction->setEnabled(false);
+	saveImageAction->setEnabled(false);
+
+	minX = new QSpinBox(leftPanel);
 	minX->setRange(0, 180);
 	minX->setEnabled(false);
+	leftPanelLayout->addWidget(minX, 1, 1);
 
-	maxX = new QSpinBox(buttons);
-	maxX->setPrefix(tr("Max x: "));
+	maxX = new QSpinBox(leftPanel);
 	maxX->setRange(0, 180);
 	maxX->setEnabled(false);
+	leftPanelLayout->addWidget(maxX, 2, 1);
 
-	minY = new QSpinBox(buttons);
-	minY->setPrefix(tr("Min y: "));
+	minY = new QSpinBox(leftPanel);
 	minY->setRange(0, 180);
 	minY->setEnabled(false);
+	leftPanelLayout->addWidget(minY, 3, 1);
 
-	maxY = new QSpinBox(buttons);
-	maxY->setPrefix(tr("Max y: "));
+	maxY = new QSpinBox(leftPanel);
 	maxY->setRange(0, 180);
 	maxY->setEnabled(false);
+	leftPanelLayout->addWidget(maxY, 4, 1);
+
+	QWidget *spacer = new QWidget(leftPanel);
+	spacer->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::MinimumExpanding);
+	leftPanelLayout->addWidget(spacer);
 
 	updateFOV(settings.value("xmin").toInt(), settings.value("xmax").toInt(),
 			  settings.value("ymin").toInt(), settings.value("ymax").toInt());
+	leftPanel->setLayout(leftPanelLayout);
 
-	QHBoxLayout *buttonsLay = new QHBoxLayout();
-	buttonsLay->addWidget(connectionButton);
-	buttonsLay->addWidget(clearButton);
-	buttonsLay->addWidget(loadButton);
-	buttonsLay->addWidget(saveButton);
-	buttonsLay->addWidget(scanButton);
-	buttonsLay->addWidget(saveImageButton);
-	buttonsLay->addWidget(minX);
-	buttonsLay->addWidget(maxX);
-	buttonsLay->addWidget(minY);
-	buttonsLay->addWidget(maxY);
+	splitter = new QSplitter(this);
+	setCentralWidget(splitter);
 
-	buttons->setLayout(buttonsLay);
-
-	centralLay->addWidget(buttons);
-
-	splitter = new QSplitter(central);
-	splitter->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
-
-	textEdit = new QTextEdit(central);
-	textEdit->setReadOnly(true);
-	textEdit->installEventFilter(this);
-	splitter->addWidget(textEdit);
+	splitter->addWidget(leftPanel);
 
 	tempView = new TempView();
 	splitter->addWidget(tempView);
@@ -140,21 +120,10 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 	connect(tempView, SIGNAL(error(const QString &)), this, SLOT(logError(const QString &)));
 	connect(tempView, SIGNAL(updateFOV(int, int, int, int)), this, SLOT(updateFOV(int, int, int, int)));
 
-	if (!splitter->restoreState(settings.value("splitterSizes").toByteArray()))
-	{
-		QList<int> sizes;
-		sizes.append(9999);
-		sizes.append(0);
-		splitter->setSizes(sizes);
-	}
-
-	connect(splitter, SIGNAL(splitterMoved(int, int)), this, SLOT(splitterMoved(int, int)));
-
-	centralLay->addWidget(splitter);
-
-	setStatusBar(new QStatusBar());
-
-	central->setLayout(centralLay);
+	textEdit = new QTextEdit(splitter);
+	textEdit->setReadOnly(true);
+	textEdit->installEventFilter(this);
+	splitter->addWidget(textEdit);
 
 	settingsTimer = new QTimer(this);
 	settingsTimer->setSingleShot(true);
@@ -165,6 +134,122 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 		QRect deskRect = QDesktopWidget().screenGeometry();
 		setGeometry(100, 100, deskRect.width() - 200, deskRect.height() - 200);
 	}
+
+	if (!splitter->restoreState(settings.value("splitterSizes").toByteArray()))
+	{
+		QRect geo = geometry();
+		QList<int> sizes;
+		sizes.append(1);
+		sizes.append(geo.width() * 75 / 100);
+		sizes.append(geo.width() * 25 / 100);
+		splitter->setSizes(sizes);
+	}
+
+	restoreState(settings.value("windowState").toByteArray());
+
+	connect(splitter, SIGNAL(splitterMoved(int, int)), this, SLOT(splitterMoved(int, int)));
+}
+
+void MainWin::createActions()
+{
+	// device actions
+	connectAction = new QAction(QIcon::fromTheme("call-start"), tr("&Connect"), this);
+	connectAction->setStatusTip(tr("Connects to device"));
+	connect(connectAction, SIGNAL(triggered()), this, SLOT(doConnect()));
+
+	disconnectAction = new QAction(QIcon::fromTheme("call-stop"), tr("&Disconnect"), this);
+	disconnectAction->setStatusTip(tr("Disconnects from currently connected device"));
+	connect(disconnectAction, SIGNAL(triggered()), this, SLOT(doDisconnect()));
+
+	scanAction = new QAction(QIcon::fromTheme("media-record"), tr("Scan image"), this);
+	scanAction->setStatusTip(tr("Starts scanning"));
+	connect(scanAction, SIGNAL(triggered()), this, SLOT(scanImage()));
+
+	stopScanAction = new QAction(QIcon::fromTheme("process-stop"), tr("Stop scanning"), this);
+	stopScanAction->setStatusTip(tr("Stops scanning"));
+	connect(stopScanAction, SIGNAL(triggered()), this, SLOT(stopScanning()));
+
+	// application internal actions
+	clearLogAction = new QAction(QIcon::fromTheme("edit-clear"), tr("Clear log"), this);
+	connect(clearLogAction, SIGNAL(triggered()), this, SLOT(clearLog()));
+
+	// file actions
+	loadAction = new QAction(QIcon::fromTheme("document-open"), tr("Load file"), this);
+	loadAction->setStatusTip(tr("Loads previously saved data file"));
+	connect(loadAction, SIGNAL(triggered()), this, SLOT(loadData()));
+
+	saveAction = new QAction(QIcon::fromTheme("document-save"), tr("Save file"), this);
+	saveAction->setStatusTip(tr("Saves currently scanned data file"));
+	connect(saveAction, SIGNAL(triggered()), this, SLOT(saveData()));
+
+	saveImageAction = new QAction(QIcon::fromTheme("document-save"), tr("Save image"), this);
+	saveImageAction->setStatusTip(tr("Saves currently scanned data file as image"));
+	connect(saveImageAction, SIGNAL(triggered()), this, SLOT(saveImage()));
+
+	exitAction = new QAction(QIcon::fromTheme("window-close"), tr("E&xit"), this);
+	connect(exitAction, SIGNAL(triggered()), qApp, SLOT(closeAllWindows()));
+
+	aboutAction = new QAction(QIcon::fromTheme("help-about"), tr("About"), this);
+	connect(aboutAction, SIGNAL(triggered()), this, SLOT(about()));
+
+	aboutQtAction = new QAction(QIcon::fromTheme("help-about"), tr("About Qt"), this);
+	connect(aboutQtAction, SIGNAL(triggered()), qApp, SLOT(aboutQt()));
+}
+
+void MainWin::createMenus()
+{
+	fileMenu = menuBar()->addMenu(tr("&File"));
+	fileMenu->addAction(loadAction);
+	fileMenu->addAction(saveAction);
+	fileMenu->addAction(saveImageAction);
+	fileMenu->addSeparator();
+	fileMenu->addAction(clearLogAction);
+	fileMenu->addSeparator();
+	fileMenu->addAction(exitAction);
+
+	deviceMenu = menuBar()->addMenu(tr("&Device"));
+	deviceMenu->addAction(connectAction);
+	deviceMenu->addAction(disconnectAction);
+	deviceMenu->addSeparator();
+	deviceMenu->addAction(scanAction);
+	deviceMenu->addAction(stopScanAction);
+
+	menuBar()->addSeparator();
+
+	helpMenu = menuBar()->addMenu(tr("&Help"));
+	helpMenu->addAction(aboutAction);
+	helpMenu->addAction(aboutQtAction);
+}
+
+void MainWin::createToolBar()
+{
+	deviceToolbar = addToolBar(tr("Device"));
+	deviceToolbar->setObjectName("device_toolbar");
+	deviceToolbar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+	deviceToolbar->addAction(connectAction);
+	deviceToolbar->addAction(disconnectAction);
+	deviceToolbar->addSeparator();
+	deviceToolbar->addAction(scanAction);
+	deviceToolbar->addAction(stopScanAction);
+
+	fileToolbar = addToolBar(tr("File"));
+	fileToolbar->setObjectName("file_toolbar");
+	fileToolbar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+	fileToolbar->addAction(loadAction);
+	fileToolbar->addAction(saveAction);
+	fileToolbar->addAction(saveImageAction);
+	fileToolbar->addSeparator();
+	fileToolbar->addAction(clearLogAction);
+}
+
+void MainWin::createStatusBar()
+{
+	statusBar()->showMessage(tr("Ready"));
+}
+
+void MainWin::about()
+{
+	// TODO: implement
 }
 
 void MainWin::log(const QString &txt)
@@ -503,12 +588,11 @@ void MainWin::doConnect()
 	notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
 	connect(notifier, SIGNAL(activated(int)), this, SLOT(fdActivated(int)));
 
-	connectionButton->setText(tr("Disconnect from device"));
-	disconnect(connectionButton, SIGNAL(clicked()), this, SLOT(doConnect()));
-	connect(connectionButton, SIGNAL(clicked()), this, SLOT(doDisconnect()));
+	connectAction->setEnabled(false);
+	disconnectAction->setEnabled(true);
 
 	pathEdit->setEnabled(false);
-	scanButton->setEnabled(true);
+	scanAction->setEnabled(true);
 
 	minX->setEnabled(true);
 	maxX->setEnabled(true);
@@ -524,12 +608,11 @@ void MainWin::doDisconnect()
 	fd = -1;
 	unlockDevice();
 
-	connectionButton->setText(tr("Connect to device"));
-	disconnect(connectionButton, SIGNAL(clicked()), this, SLOT(doDisconnect()));
-	connect(connectionButton, SIGNAL(clicked()), this, SLOT(doConnect()));
+	disconnectAction->setEnabled(false);
+	connectAction->setEnabled(true);
 
 	pathEdit->setEnabled(true);
-	scanButton->setEnabled(false);
+	scanAction->setEnabled(false);
 	minX->setEnabled(false);
 	maxX->setEnabled(false);
 	minY->setEnabled(false);
@@ -736,15 +819,6 @@ void MainWin::scanImage()
 	tempView->setBuffer(minX->value(), maxX->value(), minY->value(), maxY->value());
 	tempView->setMinimumWidth(sz.width());
 
-	if (tempView->width() < 20)
-	{
-		QList<int> sizes;
-		sizes.append(9999);
-		sizes.append(1);
-		splitter->setSizes(sizes);
-	}
-	splitter->setCollapsible(1, false);
-
 	minX->setEnabled(false);
 	maxX->setEnabled(false);
 	minY->setEnabled(false);
@@ -756,12 +830,11 @@ void MainWin::scanImage()
 	moveX(minX->value());
 	readObjectTemp();
 
-	disconnect(scanButton, SIGNAL(clicked()), this, SLOT(scanImage()));
-	scanButton->setText(tr("Stop scanning"));
-	connect(scanButton, SIGNAL(clicked()), this, SLOT(stopScanning()));
-	connectionButton->setEnabled(false);
+	scanAction->setEnabled(false);
+	stopScanAction->setEnabled(true);
+	disconnectAction->setEnabled(false);
 
-	saveImageButton->setEnabled(true);
+	saveImageAction->setEnabled(true);
 
 	scanInProgress = true;
 }
@@ -770,11 +843,10 @@ void MainWin::stopScanning()
 {
 	scanInProgress = false;
 
-	connectionButton->setEnabled(true);
-	connect(scanButton, SIGNAL(clicked()), this, SLOT(scanImage()));
-	scanButton->setText(tr("Scan image"));
-	if (splitter)
-		splitter->setCollapsible(1, true);
+	disconnectAction->setEnabled(true);
+	stopScanAction->setEnabled(false);
+	scanAction->setEnabled(true);
+
 	if (tempView)
 		tempView->setMinimumWidth(0);
 
@@ -820,10 +892,9 @@ void MainWin::saveSettings()
 	settings.setValue("xmax", maxX->value());
 	settings.setValue("ymin", minY->value());
 	settings.setValue("ymax", maxY->value());
-	const QPixmap *pix = tempView->pixmap();
-	if (pix)
-		settings.setValue("splitterSizes", splitter->saveState());
+	settings.setValue("splitterSizes", splitter->saveState());
 	settings.setValue("geometry", saveGeometry());
+	settings.setValue("windowState", saveState());
 }
 
 void MainWin::saveSettingsLater()
