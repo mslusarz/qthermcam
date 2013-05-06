@@ -877,8 +877,13 @@ void MainWin::saveImage()
 	imageFileDialog->open(this, SLOT(imageFileSelected(const QString &)));
 }
 
-void MainWin::imageFileSelected(const QString &file)
+void MainWin::imageFileSelected(const QString &file_)
 {
+	QString file = file_;
+	QString s = QFileInfo(file).suffix();
+	if (s != "png" && s != "jpg" && s != "bmp" && s != "ppm" && s != "tiff" && s != "xbm" && s != "xpm")
+		file += ".png";
+
 	if (tempView->pixmap()->save(file))
 		log(tr("File %1 saved").arg(file));
 	else
@@ -944,8 +949,11 @@ void MainWin::loadDataFileSelected(const QString &file)
 	tempView->loadFromFile(file);
 }
 
-void MainWin::saveDataFileSelected(const QString &file)
+void MainWin::saveDataFileSelected(const QString &file_)
 {
+	QString file = file_;
+	if (!file.endsWith(".qtcd"))
+		file += ".qtcd";
 	tempView->saveToFile(file);
 }
 
