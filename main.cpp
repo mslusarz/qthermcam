@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 	QCoreApplication::setOrganizationDomain("github.com/mslusarz/qthermcam");
 	QCoreApplication::setApplicationName("QThermCam");
 
-	MainWin win(path);
+	QThermCam::MainWin win(path);
 	win.show();
 	return app.exec();
 }

@@ -6,6 +6,9 @@
 #include <QPoint>
 #include <QSize>
 
+namespace QThermCam
+{
+
 class TempView : public QLabel
 {
 	Q_OBJECT
@@ -45,5 +48,6 @@ protected:
 	void resizeEvent(QResizeEvent *event);
 };
 
+}
 
 #endif /* TEMPVIEW_H_ */

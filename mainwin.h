@@ -11,9 +11,12 @@ class QLabel;
 class QSplitter;
 class QFileDialog;
 struct termios;
-class TempView;
 class QAction;
 class QToolBar;
+
+namespace QThermCam
+{
+class TempView;
 
 class MainWin : public QMainWindow
 {
@@ -85,5 +88,7 @@ class MainWin : public QMainWindow
 	void updateFOV(int xmin, int xmax, int ymin, int ymax);
 	void about();
 };
+
+}
 
 #endif

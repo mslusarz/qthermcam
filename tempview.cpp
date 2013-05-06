@@ -27,6 +27,8 @@ static uint qHash(const QPoint &p)
 	return (p.x() << 16) + p.y();
 }
 
+using namespace QThermCam;
+
 TempView::TempView(QWidget *parent, Qt::WindowFlags f) : QLabel(parent, f), buffer(NULL), tmin(999),
 	tmax(-999), xmin(0), xmax(0), ymin(0), ymax(0), dataWidth(0), dataHeight(0), cacheImage(NULL),
 	xhighlight(-1), yhighlight(-1)

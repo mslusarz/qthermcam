@@ -50,6 +50,8 @@
 #include <termios.h>
 #include <signal.h>
 
+using namespace QThermCam;
+
 MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NULL), min_x(90), max_x(90), min_y(90), max_y(90),
 		x(90), y(90), temp_object(-1000), temp_ambient(-1000), scanInProgress(false), tempView(NULL), splitter(NULL),
 		imageFileDialog(NULL), dataFileDialog(NULL)
