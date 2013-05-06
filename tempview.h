@@ -31,7 +31,7 @@ public:
 
 	void saveToFile(const QString &file);
 
-	void loadFromFile(const QString &file);
+	bool loadFromFile(const QString &file);
 
 public slots:
 	void refreshView();

@@ -333,7 +333,7 @@ void TempView::saveToFile(const QString &file)
 	f.close();
 }
 
-void TempView::loadFromFile(const QString &file)
+bool TempView::loadFromFile(const QString &file)
 {
 	QDomDocument doc("qtcd");
 	QFile f(file);
@@ -341,7 +341,7 @@ void TempView::loadFromFile(const QString &file)
 	if (!f.open(QIODevice::ReadOnly))
 	{
 		emit error(tr("Cannot open file %1 for reading: %2").arg(file).arg(f.errorString()));
-		return;
+		return false;
 	}
 
 	QString err;
@@ -350,7 +350,7 @@ void TempView::loadFromFile(const QString &file)
 	{
 		f.close();
 		emit error(tr("Cannot parse file %1, error: %2, line: %3, col: %4").arg(file).arg(f.errorString()).arg(line).arg(col));
-		return;
+		return false;
 	}
 	f.close();
 
@@ -379,7 +379,7 @@ void TempView::loadFromFile(const QString &file)
 		if (y < ymin || y > ymax)
 		{
 			emit error(QString("Invalid row number: %1").arg(y));
-			return;
+			return false;
 		}
 		QDomElement col = row.firstChildElement("col");
 		while (!col.isNull())
@@ -397,14 +397,14 @@ void TempView::loadFromFile(const QString &file)
 					if (x < xmin || x > xmax)
 					{
 						emit error(tr("Invalid column number: %1 in row %2").arg(x).arg(y));
-						return;
+						return false;
 					}
 					setTemperature(x, y, t);
 				}
 				else
 				{
 					emit error(tr("Unable to parse x or temperature in row: %1").arg(y));
-					return;
+					return false;
 				}
 			}
 
@@ -423,7 +423,7 @@ void TempView::loadFromFile(const QString &file)
 		if (x < xmin || x > xmax || y < ymin || y > ymax)
 		{
 			emit error(tr("Invalid selection: %1 / %2").arg(x).arg(y));
-			return;
+			return false;
 		}
 
 		showPoints.insert(QPoint(x, y), QSize());
@@ -433,4 +433,6 @@ void TempView::loadFromFile(const QString &file)
 
 	refreshImage(ymin, ymax);
 	refreshView();
+
+	return true;
 }

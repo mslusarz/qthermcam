@@ -946,7 +946,8 @@ void MainWin::saveData()
 
 void MainWin::loadDataFileSelected(const QString &file)
 {
-	tempView->loadFromFile(file);
+	if (tempView->loadFromFile(file))
+		saveImageAction->setEnabled(true);
 }
 
 void MainWin::saveDataFileSelected(const QString &file_)
