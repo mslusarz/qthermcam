@@ -12,6 +12,7 @@ class ThermCam : public QObject
 {
 	Q_OBJECT
 	private:
+	QString devicePath;
 	int fd;
 	QSocketNotifier *notifier;
 	QByteArray buffer;
@@ -25,6 +26,9 @@ class ThermCam : public QObject
 	} scan;
 
 	bool sendCommand(const QByteArray &cmd);
+
+	static bool lockDevice(const QString &devicePath, QString &err);
+	static void unlockDevice(const QString &devicePath, QString &err);
 
 	public:
 	ThermCam(QObject *parent);

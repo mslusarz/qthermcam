@@ -39,6 +39,13 @@ ThermCam::ThermCam(QObject *parent) : QObject(parent), fd(-1), notifier(NULL), x
 
 bool ThermCam::doConnect(const QString &path)
 {
+	QString err;
+	if (!lockDevice(path, err))
+	{
+		emit error(err);
+		return false;
+	}
+
 	QByteArray pathLocal = path.toLocal8Bit();
 	fd = open(pathLocal.constData(), O_RDWR | O_NOCTTY); // +O_NONBLOCK?
 	if (fd == -1)
@@ -87,6 +94,8 @@ bool ThermCam::doConnect(const QString &path)
 	notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
 	connect(notifier, SIGNAL(activated(int)), this, SLOT(fdActivated(int)));
 
+	devicePath = path;
+
 	return true;
 }
 
@@ -97,6 +106,13 @@ void ThermCam::doDisconnect()
 	notifier = NULL;
 	::close(fd);
 	fd = -1;
+
+	QString err;
+	unlockDevice(devicePath, err);
+	if (err != QString::null)
+		emit error(err);
+
+	devicePath = QString::null;
 }
 
 bool ThermCam::sendCommand(const QByteArray &cmd)
