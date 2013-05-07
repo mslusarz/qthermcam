@@ -16,36 +16,35 @@
  */
 #include "mainwin.h"
 
-#include <QPushButton>
-#include <QHBoxLayout>
-#include <QKeyEvent>
-#include <QLineEdit>
-#include <QTextEdit>
-#include <QDesktopWidget>
-#include <QRect>
-#include <QStatusBar>
-#include <QSpinBox>
-#include <QSplitter>
-#include <QLabel>
-#include <QSizePolicy>
-#include <QImage>
-#include <QList>
+#include <QAction>
 #include <QApplication>
+#include <QDesktopWidget>
 #include <QFileDialog>
 #include <QFileInfo>
-#include <QTimer>
-#include <QSettings>
-#include <QToolBar>
-#include <QAction>
+#include <QHBoxLayout>
+#include <QKeyEvent>
+#include <QLabel>
+#include <QLineEdit>
+#include <QList>
 #include <QMenuBar>
+#include <QPushButton>
+#include <QRect>
+#include <QSettings>
+#include <QSizePolicy>
+#include <QSpinBox>
+#include <QSplitter>
+#include <QStatusBar>
+#include <QTextEdit>
+#include <QTimer>
+#include <QToolBar>
 
 #include "tempview.h"
 #include "thermcam.h"
 
 using namespace QThermCam;
 
-MainWin::MainWin(QString path) : QMainWindow(), thermCam(NULL), minX(NULL), x(-1), y(-1), temp_object(-1000),
-		temp_ambient(-1000), tempView(NULL), splitter(NULL), imageFileDialog(NULL), dataFileDialog(NULL)
+MainWin::MainWin(QString path) : QMainWindow(), thermCam(NULL), minX(NULL), splitter(NULL), tempView(NULL), x(-1), y(-1),
+		temp_object(-1000), temp_ambient(-1000), imageFileDialog(NULL), dataFileDialog(NULL)
 {
 	thermCam = new ThermCam(this);
 	QSettings settings;

@@ -168,93 +168,98 @@ void ThermCam::fdActivated(int fd)
 {
 	char c;
 	int r = read(fd, &c, 1);
-	if (r == 1)
+	if (r != 1)
+		return;
+
+	if (c == '\r')
+		return;
+
+	if (c != '\n')
 	{
-		if (c == '\n')
+		buffer.append(c);
+		return;
+	}
+
+	QString msg = QString(buffer);
+	if (msg.startsWith("E"))
+		emit error(tr("Line: %1").arg(msg));
+	else
+		emit info(tr("Line: %1").arg(msg));
+
+	if (!msg.startsWith("I") && !msg.startsWith("E"))
+		emit error(tr("Above message has invalid format!"));
+	else if (msg.startsWith("Idims:"))
+	{
+		QStringList dims = msg.split(":").takeLast().split(",");
+		xmin = dims[0].toInt();
+		xmax = dims[1].toInt();
+		ymin = dims[2].toInt();
+		ymax = dims[3].toInt();
+
+		emit scannerReady(xmin, xmax, ymin, ymax);
+	}
+	else if (msg.startsWith("Ix: "))
+	{
+		bool ok;
+		int tmpx = msg.mid(3).toInt(&ok);
+		if (ok)
 		{
-			QString msg = QString(buffer);
-			if (msg.startsWith("E"))
-				emit error(tr("Line: %1").arg(msg));
-			else
-				emit info(tr("Line: %1").arg(msg));
-			if (!msg.startsWith("I") && !msg.startsWith("E"))
-				emit error(tr("Above message has invalid format!"));
-			else if (msg.startsWith("Idims:"))
-			{
-				QStringList dims = msg.split(":").takeLast().split(",");
-				xmin = dims[0].toInt();
-				xmax = dims[1].toInt();
-				ymin = dims[2].toInt();
-				ymax = dims[3].toInt();
+			x = tmpx;
+			emit scannerMoved_X(x);
+		}
+	}
+	else if (msg.startsWith("Iy: "))
+	{
+		bool ok;
+		int tmpy = msg.mid(3).toInt(&ok);
+		if (ok)
+		{
+			y = tmpy;
+			emit scannerMoved_Y(y);
+		}
+	}
+	else if (msg.startsWith("Itemp "))
+	{
+		bool ok;
+		QString t = msg.mid(6);
+		QStringList tt = t.split(":");
 
-				emit scannerReady(xmin, xmax, ymin, ymax);
-			}
-			else if (msg.startsWith("Ix: "))
-			{
-				bool ok;
-				int tmpx = msg.mid(3).toInt(&ok);
-				if (ok)
-				{
-					x = tmpx;
-					emit scannerMoved_X(x);
-				}
-			}
-			else if (msg.startsWith("Iy: "))
-			{
-				bool ok;
-				int tmpy = msg.mid(3).toInt(&ok);
-				if (ok)
-				{
-					y = tmpy;
-					emit scannerMoved_Y(y);
-				}
-			}
-			else if (msg.startsWith("Itemp "))
-			{
-				bool ok;
-				QString t = msg.mid(6);
-				QStringList tt = t.split(":");
+		float temp = tt[1].toFloat(&ok);
+		if (ok)
+		{
+			if (tt[0] == QString("object"))
+				emit objectTemperatureRead(x, y, temp);
+			else if (tt[0] == QString("ambient"))
+				emit ambientTemperatureRead(temp);
 
-				float temp = tt[1].toFloat(&ok);
-				if (ok)
+			if (scan.inProgress)
+			{
+				if (x == scan.xmax)
 				{
-					if (tt[0] == QString("object"))
-						emit objectTemperatureRead(x, y, temp);
-					else if (tt[0] == QString("ambient"))
-						emit ambientTemperatureRead(temp);
-
-					if (scan.inProgress)
+					if (y == scan.ymax)
+						stopScanning();
+					else
 					{
-						if (x == scan.xmax)
-						{
-							if (y == scan.ymax)
-								stopScanning();
-							else
-							{
-								sendCommand_moveY(y + 1);
-								sendCommand_moveX(scan.xmin);
-								sendCommand_readObjectTemp();
-							}
-						}
-						else
-						{
-							sendCommand_moveX(x + 1);
-							sendCommand_readObjectTemp();
-						}
+						sendCommand_moveY(y + 1);
+						sendCommand_moveX(scan.xmin);
+						sendCommand_readObjectTemp();
 					}
 				}
 				else
-					emit error(tr("Invalid temp format"));
+				{
+					sendCommand_moveX(x + 1);
+					sendCommand_readObjectTemp();
+				}
 			}
-			else if (msg.startsWith("Isetup finished"))
-			{
-				sendCommand("px90!py90!to!ta!");
-			}
-			buffer.truncate(0);
 		}
-		else if (c != '\r')
-			buffer.append(c);
+		else
+			emit error(tr("Invalid temp format"));
 	}
+	else if (msg.startsWith("Isetup finished"))
+	{
+		sendCommand("px90!py90!to!ta!");
+	}
+	buffer.truncate(0);
 }
 
 void ThermCam::scanImage(int xmin, int xmax, int ymin, int ymax)

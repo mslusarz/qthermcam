@@ -16,11 +16,11 @@
  */
 #include "tempview.h"
 
+#include <QDomDocument>
 #include <QImage>
 #include <QMouseEvent>
-#include <QToolTip>
 #include <QPainter>
-#include <QDomDocument>
+#include <QToolTip>
 
 static uint qHash(const QPoint &p)
 {
