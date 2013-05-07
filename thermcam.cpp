@@ -51,6 +51,9 @@ bool ThermCam::doConnect(const QString &path)
 	if (fd == -1)
 	{
 		emit error(path + ": " + QString(strerror(errno)));
+		unlockDevice(devicePath, err);
+		if (err != QString::null)
+			emit error(err);
 		return false;
 	}
 
@@ -61,6 +64,9 @@ bool ThermCam::doConnect(const QString &path)
 		emit error(path + " tcgetattr: " + QString(strerror(errno)));
 		::close(fd);
 		fd = -1;
+		unlockDevice(devicePath, err);
+		if (err != QString::null)
+			emit error(err);
 		return false;
 	}
 
@@ -88,6 +94,9 @@ bool ThermCam::doConnect(const QString &path)
 		emit error(path + " tcsetattr: " + QString(strerror(errno)));
 		::close(fd);
 		fd = -1;
+		unlockDevice(devicePath, err);
+		if (err != QString::null)
+			emit error(err);
 		return false;
 	}
 
