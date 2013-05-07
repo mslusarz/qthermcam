@@ -3,24 +3,24 @@
 
 #include <QMainWindow>
 
-class QSocketNotifier;
 class QLineEdit;
 class QTextEdit;
 class QSpinBox;
-class QLabel;
 class QSplitter;
 class QFileDialog;
-struct termios;
 class QAction;
 class QToolBar;
 
 namespace QThermCam
 {
 class TempView;
+class ThermCam;
 
 class MainWin : public QMainWindow
 {
 	Q_OBJECT
+	ThermCam *thermCam;
+
 	QToolBar *fileToolbar, *deviceToolbar;
 	QMenu *fileMenu, *deviceMenu, *helpMenu;
 
@@ -31,24 +31,12 @@ class MainWin : public QMainWindow
 	QLineEdit *pathEdit;
 	QTextEdit *textEdit;
 	QSpinBox *minX, *maxX, *minY, *maxY;
-	int fd;
-	QSocketNotifier *notifier;
-	void sendCommand(QString cmd);
-	void log(const QString &txt);
-	QByteArray buffer;
-	int min_x, max_x, min_y, max_y;
 	int x, y;
 	float temp_object, temp_ambient;
-	void readObjectTemp();
-	void readAmbientTemp();
-	void moveX(int newPos);
-	void moveY(int newPos);
 	void resetStatusBar();
-	bool scanInProgress;
 	TempView *tempView;
 	QSplitter *splitter;
 	QFileDialog *imageFileDialog, *dataFileDialog;
-	void dumpTermiosInfo(const struct termios &argp);
 
 	bool lockDevice();
 	void unlockDevice();
@@ -71,9 +59,7 @@ class MainWin : public QMainWindow
 	public slots:
 	void doConnect();
 	void doDisconnect();
-	void fdActivated(int);
 	void scanImage();
-	void stopScanning();
 	void clearLog();
 	void splitterMoved(int pos, int index);
 	void saveImage();
@@ -84,9 +70,16 @@ class MainWin : public QMainWindow
 	void saveData();
 	void loadDataFileSelected(const QString &file);
 	void saveDataFileSelected(const QString &file);
+	void log(const QString &msg);
 	void logError(const QString &msg);
 	void updateFOV(int xmin, int xmax, int ymin, int ymax);
 	void about();
+	void scannerReady(int xmin, int xmax, int ymin, int ymax);
+	void scannerMoved_X(int x);
+	void scannerMoved_Y(int y);
+	void objectTemperatureRead(int x, int y, float temp);
+	void ambientTemperatureRead(float temp);
+	void scanningStopped();
 };
 
 }

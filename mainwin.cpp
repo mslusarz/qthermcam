@@ -19,7 +19,6 @@
 #include <QPushButton>
 #include <QHBoxLayout>
 #include <QKeyEvent>
-#include <QSocketNotifier>
 #include <QLineEdit>
 #include <QTextEdit>
 #include <QDesktopWidget>
@@ -41,21 +40,21 @@
 #include <QMenuBar>
 
 #include "tempview.h"
+#include "thermcam.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
-#include <termios.h>
 #include <signal.h>
 
 using namespace QThermCam;
 
-MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NULL), min_x(90), max_x(90), min_y(90), max_y(90),
-		x(90), y(90), temp_object(-1000), temp_ambient(-1000), scanInProgress(false), tempView(NULL), splitter(NULL),
-		imageFileDialog(NULL), dataFileDialog(NULL)
+MainWin::MainWin(QString path) : QMainWindow(), thermCam(NULL), minX(NULL), x(-1), y(-1), temp_object(-1000),
+		temp_ambient(-1000), tempView(NULL), splitter(NULL), imageFileDialog(NULL), dataFileDialog(NULL)
 {
+	thermCam = new ThermCam(this);
 	QSettings settings;
 
 	createActions();
@@ -77,7 +76,7 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 	pathEdit->installEventFilter(this);
 	leftPanelLayout->addWidget(pathEdit, 0, 1);
 
-	stopScanning();
+	scanningStopped();
 
 	scanAction->setEnabled(false);
 	disconnectAction->setEnabled(false);
@@ -150,6 +149,17 @@ MainWin::MainWin(QString path) : QMainWindow(), minX(NULL), fd(-1), notifier(NUL
 	restoreState(settings.value("windowState").toByteArray());
 
 	connect(splitter, SIGNAL(splitterMoved(int, int)), this, SLOT(splitterMoved(int, int)));
+	connect(thermCam, SIGNAL(scannerReady(int, int, int, int)), this, SLOT(scannerReady(int, int, int, int)));
+	connect(thermCam, SIGNAL(scannerMoved_X(int)), this, SLOT(scannerMoved_X(int)));
+	connect(thermCam, SIGNAL(scannerMoved_Y(int)), this, SLOT(scannerMoved_Y(int)));
+	connect(thermCam, SIGNAL(objectTemperatureRead(int, int, float)), this, SLOT(objectTemperatureRead(int, int, float)));
+	connect(thermCam, SIGNAL(ambientTemperatureRead(float)), this, SLOT(ambientTemperatureRead(float)));
+	connect(thermCam, SIGNAL(scanningStopped()), this, SLOT(scanningStopped()));
+
+	connect(thermCam, SIGNAL(debug(const QString &)), this, SLOT(log(const QString &)));
+	connect(thermCam, SIGNAL(info(const QString &)), this, SLOT(log(const QString &)));
+	connect(thermCam, SIGNAL(warning(const QString &)), this, SLOT(logError(const QString &)));
+	connect(thermCam, SIGNAL(error(const QString &)), this, SLOT(logError(const QString &)));
 }
 
 void MainWin::createActions()
@@ -169,7 +179,7 @@ void MainWin::createActions()
 
 	stopScanAction = new QAction(QIcon::fromTheme("process-stop"), tr("Stop scanning"), this);
 	stopScanAction->setStatusTip(tr("Stops scanning"));
-	connect(stopScanAction, SIGNAL(triggered()), this, SLOT(stopScanning()));
+	connect(stopScanAction, SIGNAL(triggered()), thermCam, SLOT(stopScanning()));
 
 	// application internal actions
 	clearLogAction = new QAction(QIcon::fromTheme("edit-clear"), tr("Clear log"), this);
@@ -259,131 +269,6 @@ void MainWin::log(const QString &txt)
 	textEdit->append(txt);
 }
 
-struct flags_desc
-{
-	unsigned int flag;
-	QString desc;
-};
-
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
-#define _F(X) {X, #X}
-
-static struct flags_desc iflags[] =
-{
-	_F(IGNBRK),	_F(IGNBRK),	_F(BRKINT),	_F(IGNPAR),
-	_F(PARMRK),	_F(INPCK),	_F(ISTRIP),	_F(INLCR),
-	_F(IGNCR),	_F(ICRNL),	_F(IUCLC),	_F(IXON),
-	_F(IXANY),	_F(IXOFF),	_F(IMAXBEL),_F(IUTF8)
-};
-
-static struct flags_desc oflags[] =
-{
-	_F(OPOST),	_F(OLCUC),	_F(ONLCR),	_F(OCRNL),
-	_F(ONOCR),	_F(ONLRET),	_F(OFILL),	_F(OFDEL),
-	_F(NLDLY),	_F(CRDLY),	_F(TABDLY),	_F(BSDLY),
-	_F(VTDLY),	_F(FFDLY)
-};
-
-static struct flags_desc cflags[] =
-{
-	_F(CSTOPB),	_F(CREAD),	_F(PARENB),	_F(PARODD),
-	_F(HUPCL),	_F(CLOCAL),	_F(CIBAUD),	_F(CMSPAR),
-	_F(CRTSCTS),_F(CBAUDEX)
-};
-
-static struct flags_desc lflags[] =
-{
-	_F(ISIG),	_F(ICANON),	_F(XCASE),	_F(ECHO),
-	_F(ECHOE),	_F(ECHOK),	_F(ECHONL),	_F(ECHOCTL),
-	_F(ECHOPRT),_F(ECHOKE),	_F(FLUSHO),	_F(NOFLSH),
-	_F(TOSTOP),	_F(PENDIN),	_F(IEXTEN)
-};
-
-static struct flags_desc speeds[] =
-{
-	_F(B50),		_F(B75),		_F(B110),		_F(B134),
-	_F(B150),		_F(B200),		_F(B300),		_F(B600),
-	_F(B1200),		_F(B1800),		_F(B2400),		_F(B4800),
-	_F(B9600),		_F(B19200),		_F(B38400),		_F(B57600),
-	_F(B115200),	_F(B230400),	_F(B460800),	_F(B500000),
-	_F(B576000),	_F(B921600),	_F(B1000000),	_F(B1152000),
-	_F(B1500000),	_F(B2000000),	_F(B2500000),	_F(B3000000),
-	_F(B3500000),	_F(B4000000)
-};
-
-void MainWin::dumpTermiosInfo(const struct termios &argp)
-{
-	speed_t speed;
-	unsigned int i;
-	QString out;
-	QStringList outlist;
-
-	outlist.append(out.sprintf("iflag:  0x%08x", argp.c_iflag));
-	for (i = 0; i < ARRAY_SIZE(iflags); ++i)
-		if (argp.c_iflag & iflags[i].flag)
-			outlist.append(iflags[i].desc);
-	log(outlist.join(" "));
-
-	outlist.clear();
-	outlist.append(out.sprintf("oflag:  0x%08x", argp.c_oflag));
-	for (i = 0; i < ARRAY_SIZE(oflags); ++i)
-		if (argp.c_oflag & oflags[i].flag)
-			outlist.append(oflags[i].desc);
-	log(outlist.join(" "));
-
-	outlist.clear();
-	outlist.append(out.sprintf("cflag:  0x%08x", argp.c_cflag));
-	for (i = 0; i < ARRAY_SIZE(cflags); ++i)
-		if (argp.c_cflag & cflags[i].flag)
-			outlist.append(cflags[i].desc);
-	if (argp.c_cflag & CBAUD)
-		outlist.append(out.sprintf("CBAUD(%x)", argp.c_cflag & CBAUD));
-	if (argp.c_cflag & CSIZE)
-	{
-		out.sprintf("CSIZE(0x%x = ", argp.c_cflag & CSIZE);
-		switch (argp.c_cflag & CSIZE)
-		{
-			case CS5: out.append("CS5"); break;
-			case CS6: out.append("CS6"); break;
-			case CS7: out.append("CS7"); break;
-			case CS8: out.append("CS8"); break;
-			default: out.append("???"); break;
-		}
-		out.append(")");
-		outlist.append(out);
-	}
-	log(outlist.join(" "));
-
-	outlist.clear();
-	outlist.append(out.sprintf("lflag:  0x%08x", argp.c_lflag));
-	for (i = 0; i < ARRAY_SIZE(lflags); ++i)
-		if (argp.c_lflag & lflags[i].flag)
-			outlist.append(lflags[i].desc);
-	log(outlist.join(" "));
-
-	out.sprintf("cline:  0x%08x", argp.c_line);
-	log(out);
-
-	speed = cfgetispeed(&argp);
-	out.sprintf("ispeed: 0x%08x ", speed);
-	for (i = 0; i < ARRAY_SIZE(speeds); ++i)
-		if (speed == speeds[i].flag)
-		{
-			out.append(speeds[i].desc);
-			break;
-		}
-	log(out);
-
-	speed = cfgetospeed(&argp);
-	out.sprintf("ospeed: 0x%08x ", speed);
-	for (i = 0; i < ARRAY_SIZE(speeds); ++i)
-		if (speed == speeds[i].flag)
-		{
-			out.append(speeds[i].desc);
-			break;
-		}
-	log(out);
-}
 
 bool MainWin::lockDevice()
 {
@@ -539,62 +424,16 @@ void MainWin::doConnect()
 	if (!lockDevice())
 		return;
 
-	QByteArray pathLocal = path.toLocal8Bit();
-	fd = open(pathLocal.constData(), O_RDWR | O_NOCTTY); // +O_NONBLOCK?
-	if (fd == -1)
-	{
-		logError(path + ": " + QString(strerror(errno)));
+	if (!thermCam->doConnect(path))
 		return;
-	}
-
-	struct termios argp;
-
-	if (tcgetattr(fd, &argp))
-	{
-		logError(path + " tcgetattr: " + QString(strerror(errno)));
-		::close(fd);
-		fd = -1;
-		return;
-	}
-
-	log(tr("Current port settings:"));
-	dumpTermiosInfo(argp);
-
-	argp.c_iflag = 0;
-	argp.c_oflag = 0;
-	argp.c_cflag = 0;
-	argp.c_lflag = 0;
-
-	argp.c_iflag |= INPCK;
-
-	argp.c_cflag |= CS8;
-	argp.c_cflag |= CREAD;
-	argp.c_cflag |= CLOCAL;
-
-	cfsetspeed(&argp, B9600);
-
-	log("new port settings: ");
-	dumpTermiosInfo(argp);
-
-	if (tcsetattr(fd, TCSANOW, &argp))
-	{
-		logError(path + " tcsetattr: " + QString(strerror(errno)));
-		::close(fd);
-		fd = -1;
-		return;
-	}
 
 	log(tr("%1: connected").arg(path));
 	statusBar()->showMessage(tr("connected"));
-
-	notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
-	connect(notifier, SIGNAL(activated(int)), this, SLOT(fdActivated(int)));
 
 	connectAction->setEnabled(false);
 	disconnectAction->setEnabled(true);
 
 	pathEdit->setEnabled(false);
-	scanAction->setEnabled(true);
 
 	minX->setEnabled(true);
 	maxX->setEnabled(true);
@@ -604,10 +443,8 @@ void MainWin::doConnect()
 
 void MainWin::doDisconnect()
 {
-	disconnect(notifier, NULL, this, NULL);
-	delete notifier;
-	::close(fd);
-	fd = -1;
+	thermCam->doDisconnect();
+
 	unlockDevice();
 
 	disconnectAction->setEnabled(false);
@@ -635,156 +472,9 @@ void MainWin::resetStatusBar()
 			.arg(x).arg(y).arg(temp_object).arg(temp_ambient));
 }
 
-void MainWin::fdActivated(int)
-{
-	char c;
-	int r = read(fd, &c, 1);
-	if (r == 1)
-	{
-		if (c == '\n')
-		{
-			QString msg = QString(buffer);
-			if (msg.startsWith("E"))
-				logError(tr("Line: %1").arg(msg));
-			else
-				log(tr("Line: %1").arg(msg));
-			if (!msg.startsWith("I") && !msg.startsWith("E"))
-				logError(tr("Above message has invalid format!"));
-			else if (msg.startsWith("Idims:"))
-			{
-				QStringList dims = msg.split(":").takeLast().split(",");
-				min_x = dims[0].toInt();
-				max_x = dims[1].toInt();
-				min_y = dims[2].toInt();
-				max_y = dims[3].toInt();
-
-				minX->setRange(min_x, max_x);
-				maxX->setRange(min_x, max_x);
-				minY->setRange(min_y, max_y);
-				maxY->setRange(min_y, max_y);
-			}
-			else if (msg.startsWith("Ix: "))
-			{
-				bool ok;
-				int tmpx = msg.mid(3).toInt(&ok);
-				if (ok)
-				{
-					x = tmpx;
-					tempView->highlightPoint(x, y);
-					if (!scanInProgress)
-						tempView->refreshView();
-					resetStatusBar();
-				}
-			}
-			else if (msg.startsWith("Iy: "))
-			{
-				bool ok;
-				int tmpy = msg.mid(3).toInt(&ok);
-				if (ok)
-				{
-					y = tmpy;
-					tempView->highlightPoint(x, y);
-					if (!scanInProgress)
-						tempView->refreshView();
-					resetStatusBar();
-				}
-			}
-			else if (msg.startsWith("Itemp "))
-			{
-				bool ok;
-				QString t = msg.mid(6);
-				QStringList tt = t.split(":");
-
-				float temp = tt[1].toFloat(&ok);
-				if (ok)
-				{
-					if (tt[0] == QString("object"))
-						temp_object = temp;
-					else if (tt[0] == QString("ambient"))
-						temp_ambient = temp;
-					resetStatusBar();
-					if (scanInProgress)
-					{
-						tempView->setTemperature(x, y, temp_object);
-
-						if (x == maxX->value())
-						{
-							tempView->refreshImage(minY->value(), y);
-							tempView->refreshView();
-							qApp->processEvents();
-
-							if (y == maxY->value())
-								stopScanning();
-							else
-							{
-								moveY(y + 1);
-								moveX(minX->value());
-								readObjectTemp();
-							}
-						}
-						else
-						{
-							moveX(x + 1);
-							readObjectTemp();
-						}
-					}
-				}
-				else
-					logError(tr("Invalid temp format"));
-			}
-			else if (msg.startsWith("Isetup finished"))
-			{
-				sendCommand("px90!py90!to!ta!");
-			}
-			buffer.truncate(0);
-		}
-		else if (c != '\r')
-			buffer.append(c);
-	}
-}
-
-void MainWin::sendCommand(QString cmd)
-{
-	int r = write(fd, cmd.toAscii().constData(), cmd.length());
-	if (r == 0)
-		logError(tr("Cannot send command"));
-	else if (r < 0)
-		logError(tr("write: %1").arg(strerror(errno)));
-	else
-		log(tr("Command '%1' sent: %2").arg(cmd).arg(r));
-}
-
-void MainWin::moveX(int newPos)
-{
-	if (newPos < min_x)
-		newPos = min_x;
-	if (newPos > max_x)
-		newPos = max_x;
-	sendCommand(QString("px%1!").arg(newPos));
-}
-
-void MainWin::moveY(int newPos)
-{
-	if (newPos < min_y)
-		newPos = min_y;
-	if (newPos > max_y)
-		newPos = max_y;
-	sendCommand(QString("py%1!").arg(newPos));
-}
-
-void MainWin::readObjectTemp()
-{
-	sendCommand("to!");
-}
-
-void MainWin::readAmbientTemp()
-{
-	sendCommand("ta!");
-}
-
 bool MainWin::eventFilter(QObject *obj, QEvent *_event)
 {
-	if (!scanInProgress && fd != -1 && _event->type() == QEvent::KeyPress)
+	if (!thermCam->scanInProgress() && thermCam->connected() && _event->type() == QEvent::KeyPress)
 	{
 		QKeyEvent *event = static_cast<QKeyEvent *>(_event);
 		int speed = 10;
@@ -797,17 +487,17 @@ bool MainWin::eventFilter(QObject *obj, QEvent *_event)
 			speed = 180;
 
 		if (event->key() == Qt::Key_Up)
-			moveY(y + speed);
+			thermCam->sendCommand_moveY(y + speed);
 		else if (event->key() == Qt::Key_Down)
-			moveY(y - speed);
+			thermCam->sendCommand_moveY(y - speed);
 		else if (event->key() == Qt::Key_Left)
-			moveX(x - speed);
+			thermCam->sendCommand_moveX(x - speed);
 		else if (event->key() == Qt::Key_Right)
-			moveX(x + speed);
+			thermCam->sendCommand_moveX(x + speed);
 		else if (event->key() == Qt::Key_Space)
 		{
-			readObjectTemp();
-			readAmbientTemp();
+			thermCam->sendCommand_readObjectTemp();
+			thermCam->sendCommand_readAmbientTemp();
 		}
 		return true;
 	}
@@ -828,23 +518,17 @@ void MainWin::scanImage()
 
 	saveSettings();
 
-	moveY(minY->value());
-	moveX(minX->value());
-	readObjectTemp();
-
 	scanAction->setEnabled(false);
 	stopScanAction->setEnabled(true);
 	disconnectAction->setEnabled(false);
 
 	saveImageAction->setEnabled(true);
 
-	scanInProgress = true;
+	thermCam->scanImage(minX->value(), maxX->value(), minY->value(), maxY->value());
 }
 
-void MainWin::stopScanning()
+void MainWin::scanningStopped()
 {
-	scanInProgress = false;
-
 	disconnectAction->setEnabled(true);
 	stopScanAction->setEnabled(false);
 	scanAction->setEnabled(true);
@@ -912,17 +596,18 @@ void MainWin::saveSettingsLater()
 void MainWin::closeEvent(QCloseEvent *event)
 {
 	saveSettings();
-	if (fd != -1)
+	if (thermCam->connected())
 		doDisconnect();
 	QMainWindow::closeEvent(event);
 }
 
 void MainWin::imageClicked(const QPoint &p)
 {
-	if (fd == -1 || scanInProgress || p.x() < minX->value() || p.x() > maxX->value() || p.y() < minY->value() || p.y() > maxY->value())
+	if (!thermCam->connected() || thermCam->scanInProgress() ||
+			p.x() < minX->value() || p.x() > maxX->value() || p.y() < minY->value() || p.y() > maxY->value())
 		return;
-	moveX(p.x());
-	moveY(p.y());
+	thermCam->sendCommand_moveX(p.x());
+	thermCam->sendCommand_moveY(p.y());
 }
 
 void MainWin::prepareDataFileDialog()
@@ -971,4 +656,57 @@ void MainWin::updateFOV(int xmin, int xmax, int ymin, int ymax)
 	maxX->setValue(xmax);
 	minY->setValue(ymin);
 	maxY->setValue(ymax);
+}
+
+void MainWin::scannerReady(int xmin, int xmax, int ymin, int ymax)
+{
+	minX->setRange(xmin, xmax);
+	maxX->setRange(xmin, xmax);
+	minY->setRange(ymin, ymax);
+	maxY->setRange(ymin, ymax);
+
+	scanAction->setEnabled(true);
+}
+
+void MainWin::scannerMoved_X(int x)
+{
+	this->x = x;
+	tempView->highlightPoint(x, y);
+	if (!thermCam->scanInProgress())
+		tempView->refreshView();
+	resetStatusBar();
+}
+
+void MainWin::scannerMoved_Y(int y)
+{
+	this->y = y;
+	tempView->highlightPoint(x, y);
+	if (!thermCam->scanInProgress())
+		tempView->refreshView();
+	resetStatusBar();
+}
+
+void MainWin::objectTemperatureRead(int x, int y, float temp)
+{
+	temp_object = temp;
+
+	if (thermCam->scanInProgress())
+	{
+		tempView->setTemperature(x, y, temp);
+
+		if (x == maxX->value())
+		{
+			tempView->refreshImage(minY->value(), y);
+			tempView->refreshView();
+			qApp->processEvents();
+		}
+	}
+
+	resetStatusBar();
+}
+
+void MainWin::ambientTemperatureRead(float temp)
+{
+	temp_ambient = temp;
+	resetStatusBar();
 }
