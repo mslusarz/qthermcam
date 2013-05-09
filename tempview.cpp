@@ -47,7 +47,7 @@ void TempView::setBuffer(int _xmin, int _xmax, int _ymin, int _ymax)
 	dataWidth = xmax - xmin + 1;
 	dataHeight = ymax - ymin + 1;
 
-	delete buffer;
+	delete[] buffer;
 	buffer = new float[dataWidth * dataHeight];
 
 	for(int i = 0; i < dataWidth * dataHeight; ++i)
