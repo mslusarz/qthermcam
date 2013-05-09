@@ -37,6 +37,12 @@ TempView::TempView(QWidget *parent, Qt::WindowFlags f) : QLabel(parent, f), buff
 	setAlignment(Qt::AlignCenter);
 }
 
+TempView::~TempView()
+{
+	delete[] buffer;
+	delete cacheImage;
+}
+
 void TempView::setBuffer(int _xmin, int _xmax, int _ymin, int _ymax)
 {
 	xmin = _xmin;

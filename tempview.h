@@ -24,6 +24,8 @@ class TempView : public QLabel
 public:
 	TempView(QWidget *parent = 0, Qt::WindowFlags f = 0);
 
+	~TempView();
+
 	void setBuffer(int xmin, int xmax, int ymin, int ymax);
 
 	void setTemperature(int x, int y, float temp);
