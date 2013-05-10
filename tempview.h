@@ -32,18 +32,42 @@ public:
 
 	void refreshImage(int ymin, int ymax);
 
+	void refreshImage();
+
 	void highlightPoint(int x, int y);
 
 	void saveToFile(const QString &file);
 
 	bool loadFromFile(const QString &file);
 
+	float minTemperature() { return tmin; }
+
+	float maxTemperature() { return tmax; }
+
+	int bufferWidth() { return dataWidth; }
+
+	int bufferHeight() { return dataHeight; }
+
+	int minimumX() { return xmin; }
+
+	int maximumX() { return xmax; }
+
+	int minimumY() { return ymin; }
+
+	int maximumY() { return ymax; }
+
+	void addStaticLabel(const QPoint &p);
+
+	void removeStaticLabel(const QPoint &p);
+
+	void clearStaticLabels();
 public slots:
 	void refreshView();
 signals:
 	void leftMouseButtonClicked(const QPoint &p);
 	void error(const QString &s);
-	void updateFOV(int xmin, int xmax, int ymin, int ymax);
+	void bufferSizeChanged(int xmin, int xmax, int ymin, int ymax);
+	void temperatureSet(int x, int y, float t);
 protected:
 	void mouseMoveEvent(QMouseEvent *event);
 	void mousePressEvent(QMouseEvent *event);

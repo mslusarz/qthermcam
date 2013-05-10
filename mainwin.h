@@ -30,6 +30,7 @@ class MainWin : public QMainWindow
 
 	QLineEdit *pathEdit;
 	QSpinBox *minX, *maxX, *minY, *maxY;
+	TempView *tempScale;
 
 	QSplitter *splitter;
 	TempView *tempView;
@@ -52,6 +53,7 @@ class MainWin : public QMainWindow
 	void createStatusBar();
 
 	void resetStatusBar();
+	void fillTempScale(float tmin, float tmax);
 
 	void closeEvent(QCloseEvent *event);
 	bool eventFilter(QObject *obj, QEvent *event);
@@ -77,9 +79,10 @@ class MainWin : public QMainWindow
 	void imageFileSelected(const QString &file);
 
 	/* TempView */
-	void updateFOV(int xmin, int xmax, int ymin, int ymax);
+	void bufferSizeChanged(int xmin, int xmax, int ymin, int ymax);
 	void splitterMoved(int pos, int index);
 	void imageClicked(const QPoint &p);
+	void temperatureSet(int x, int y, float t);
 
 	/* ThermCam */
 	void scannerReady(int xmin, int xmax, int ymin, int ymax);

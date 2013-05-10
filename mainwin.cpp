@@ -40,6 +40,7 @@
 
 #include "tempview.h"
 #include "thermcam.h"
+#include <math.h>
 
 using namespace QThermCam;
 
@@ -96,10 +97,16 @@ MainWin::MainWin(QString path) : QMainWindow(), thermCam(NULL), minX(NULL), spli
 
 	QWidget *spacer = new QWidget(leftPanel);
 	spacer->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::MinimumExpanding);
-	leftPanelLayout->addWidget(spacer);
+	leftPanelLayout->addWidget(spacer, 5, 0);
 
-	updateFOV(settings.value("xmin").toInt(), settings.value("xmax").toInt(),
-			  settings.value("ymin").toInt(), settings.value("ymax").toInt());
+	tempScale = new TempView(leftPanel);
+	leftPanelLayout->addWidget(tempScale, 6, 1);
+
+	bufferSizeChanged(settings.value("xmin").toInt(), settings.value("xmax").toInt(),
+					  settings.value("ymin").toInt(), settings.value("ymax").toInt());
+	fillTempScale(0, 100);
+	tempScale->refreshImage();
+	tempScale->refreshView();
 	leftPanel->setLayout(leftPanelLayout);
 
 	splitter = new QSplitter(this);
@@ -111,7 +118,8 @@ MainWin::MainWin(QString path) : QMainWindow(), thermCam(NULL), minX(NULL), spli
 	splitter->addWidget(tempView);
 	connect(tempView, SIGNAL(leftMouseButtonClicked(const QPoint &)), this, SLOT(imageClicked(const QPoint &)));
 	connect(tempView, SIGNAL(error(const QString &)), this, SLOT(logError(const QString &)));
-	connect(tempView, SIGNAL(updateFOV(int, int, int, int)), this, SLOT(updateFOV(int, int, int, int)));
+	connect(tempView, SIGNAL(bufferSizeChanged(int, int, int, int)), this, SLOT(bufferSizeChanged(int, int, int, int)));
+	connect(tempView, SIGNAL(temperatureSet(int, int, float)), this, SLOT(temperatureSet(int, int, float)));
 
 	textEdit = new QTextEdit(splitter);
 	textEdit->setReadOnly(true);
@@ -491,12 +499,14 @@ void MainWin::logError(const QString &msg)
 	log("<b><font color=\"red\">" + msg + "</font></b>");
 }
 
-void MainWin::updateFOV(int xmin, int xmax, int ymin, int ymax)
+void MainWin::bufferSizeChanged(int xmin, int xmax, int ymin, int ymax)
 {
 	minX->setValue(xmin);
 	maxX->setValue(xmax);
 	minY->setValue(ymin);
 	maxY->setValue(ymax);
+
+	tempScale->setBuffer(0, 59, 0, 255);
 }
 
 void MainWin::scannerReady(int xmin, int xmax, int ymin, int ymax)
@@ -550,4 +560,45 @@ void MainWin::ambientTemperatureRead(float temp)
 {
 	temp_ambient = temp;
 	resetStatusBar();
+}
+
+void MainWin::fillTempScale(float tmin, float tmax)
+{
+	for (int y = 0; y < tempScale->bufferHeight(); ++y)
+	{
+		float temp2 = tmin + y * (tmax - tmin) / tempScale->bufferHeight();
+		for (int x = 0; x < tempScale->bufferWidth(); ++x)
+			tempScale->setTemperature(x, y, temp2);
+	}
+}
+
+void MainWin::temperatureSet(int x, int y, float /*temp*/)
+{
+	if (x != tempView->maximumX())
+		return;
+	if (!thermCam->scanInProgress() && y != tempView->maximumY())
+		return;
+
+	float tmin = tempView->minTemperature();
+	float tmax = tempView->maxTemperature();
+
+	fillTempScale(tmin, tmax);
+
+	tempScale->clearStaticLabels();
+	tempScale->addStaticLabel(QPoint(10, 0));
+	tempScale->addStaticLabel(QPoint(10, tempScale->bufferHeight() - 1));
+
+	int prev_y = 5; // TODO: see below
+	for (float t = ceil(tmin * 2) / 2; t < tmax; t += 0.5)
+	{
+		int y = (t - tmin) * tempScale->bufferHeight() / (tmax - tmin);
+		// TODO: these values should be derived from values calculated in refreshView (rect size and yoffset)
+		if (y < prev_y + 20 || y > tempScale->bufferHeight() - 20)
+			continue;
+		tempScale->addStaticLabel(QPoint(10, y));
+		prev_y = y;
+	}
+
+	tempScale->refreshImage();
+	tempScale->refreshView();
 }

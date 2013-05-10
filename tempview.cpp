@@ -69,10 +69,9 @@ void TempView::setBuffer(int _xmin, int _xmax, int _ymin, int _ymax)
 		cacheImage = NULL;
 	}
 
-	if (!cacheImage)
-		cacheImage = new QImage(dataWidth, dataHeight, QImage::Format_ARGB32);
-
+	cacheImage = new QImage(dataWidth, dataHeight, QImage::Format_ARGB32);
 	cacheImage->fill(QColor(0, 0, 0));
+	emit bufferSizeChanged(xmin, xmax, ymin, ymax);
 
 	refreshView();
 }
@@ -84,6 +83,7 @@ void TempView::setTemperature(int x, int y, float temp)
 	buffer[dataWidth * (y - ymin) + (x - xmin)] = temp;
 	if (showPoints.contains(QPoint(x, y)))
 		showPoints[QPoint(x, y)] = QSize();
+	emit temperatureSet(x, y, temp);
 }
 
 static QRgb getColor(int level)
@@ -106,6 +106,11 @@ void TempView::refreshImage(int _ymin, int _ymax)
 		for (int x = 0; x < dataWidth; ++x)
 			line[x] = getColor((buffer[y * dataWidth + x] - tmin) * 1023 / (tmax - tmin));
 	}
+}
+
+void TempView::refreshImage()
+{
+	refreshImage(ymin, ymax);
 }
 
 void TempView::refreshView()
@@ -160,7 +165,7 @@ void TempView::refreshView()
 		const QPoint &p = ps.key();
 		QSize &s = ps.value();
 		QPoint imagePoint((p.x() - xmin) * xscale + xscale / 2, tempImage.height() - (p.y() - ymin) * yscale - yscale / 2);
-		QString text = QString::number(buffer[(p.y() - ymin) * dataWidth + p.x() - xmin]);
+		QString text = QString::number(buffer[(p.y() - ymin) * dataWidth + p.x() - xmin], 'f', 2);
 
 		painter.drawEllipse(imagePoint, 1, 1);
 
@@ -225,10 +230,27 @@ void TempView::mouseMoveEvent(QMouseEvent *event)
 		return;
 	}
 
-	QString s = QString::number(buffer[p.y() * dataWidth + p.x()]);
+	QString s = QString::number(buffer[p.y() * dataWidth + p.x()], 'f', 2);
 	//s.sprintf("%d %d %f", p.x(), p.y(), buffer[p.y() * dataWidth + p.x()]);
 	QToolTip::showText(event->globalPos(), s, this);
 	QLabel::mouseMoveEvent(event);
+}
+
+void TempView::addStaticLabel(const QPoint &p)
+{
+	if (!showPoints.contains(p))
+		showPoints.insert(p, QSize());
+}
+
+void TempView::removeStaticLabel(const QPoint &p)
+{
+	if (showPoints.contains(p))
+		showPoints.remove(p);
+}
+
+void TempView::clearStaticLabels()
+{
+	showPoints.clear();
 }
 
 void TempView::mousePressEvent(QMouseEvent *event)
@@ -370,7 +392,6 @@ bool TempView::loadFromFile(const QString &file)
 	int ymin = fov.attribute("ymin", "0").toInt();
 	int ymax = fov.attribute("ymax", "180").toInt();
 
-	emit updateFOV(xmin, xmax, ymin, ymax);
 	setBuffer(xmin, xmax, ymin, ymax);
 
 	QDomElement highlight = docElem.firstChildElement("highlight");
@@ -439,7 +460,7 @@ bool TempView::loadFromFile(const QString &file)
 		point = point.nextSiblingElement("point");
 	}
 
-	refreshImage(ymin, ymax);
+	refreshImage();
 	refreshView();
 
 	return true;
