@@ -88,7 +88,7 @@ void TempView::setTemperature(int x, int y, float temp)
 
 static QRgb getColor(int level)
 {
-	level = 1024 - level;
+	level = 1023 - level;
 	if (level < 256)
 		return qRgb(255, 255 - level, 0);
 	if (level < 512)
@@ -104,7 +104,7 @@ void TempView::refreshImage(int _ymin, int _ymax)
 	{
 		QRgb *line = (QRgb *)cacheImage->scanLine(dataHeight - y - 1);
 		for (int x = 0; x < dataWidth; ++x)
-			line[x] = getColor((buffer[y * dataWidth + x] - tmin) * 1024 / (tmax - tmin));
+			line[x] = getColor((buffer[y * dataWidth + x] - tmin) * 1023 / (tmax - tmin));
 	}
 }
 
