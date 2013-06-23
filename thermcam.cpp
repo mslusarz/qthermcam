@@ -270,6 +270,7 @@ void ThermCam::scanImage(int xmin, int xmax, int ymin, int ymax)
 	scan.ymax = ymax;
 
 	scan.inProgress = true;
+	sendCommand("jd!"); // joystick disable
 	sendCommand_moveY(scan.ymin);
 	sendCommand_moveX(scan.xmin);
 	sendCommand_readObjectTemp();
@@ -278,6 +279,7 @@ void ThermCam::scanImage(int xmin, int xmax, int ymin, int ymax)
 void ThermCam::stopScanning()
 {
 	scan.inProgress = false;
+	sendCommand("je!"); // joystick enable
 	emit scanningStopped();
 }
 
