@@ -57,12 +57,25 @@ static Servo servo_y;
 
 static char buf[100];
 
+static inline void print(const char *s)
+{
+  Serial.print(s);
+}
+static inline void println(const char *s)
+{
+  Serial.println(s);
+}
+static inline void println(double f)
+{
+  Serial.println(f);
+}
+
 void setup()
 {
   Serial.begin(SERIAL_BAUD_RATE);
-  Serial.println("Isetup");
+  println("Isetup");
   sprintf(buf, "Idims:%d,%d,%d,%d", SERVO_X_MIN, SERVO_X_MAX, SERVO_Y_MIN, SERVO_Y_MAX);
-  Serial.println(buf);
+  println(buf);
 
   servo_x.attach(SERVO_X_PIN);
   servo_y.attach(SERVO_Y_PIN);
@@ -77,14 +90,14 @@ void setup()
     int h, v;
     read_joystick(h, v);
     if (h > JOY_HORZ_CENTER + 10 || h < JOY_HORZ_CENTER - 10 || v > JOY_VERT_CENTER + 10 || v < JOY_VERT_CENTER - 10)
-      Serial.println("Ejoystick needs recalibration!");
+      println("Ejoystick needs recalibration!");
     JOY_HORZ_CENTER = h;
     JOY_VERT_CENTER = v;
   }
   
   Wire.begin();
   
-  Serial.println("Isetup finished");
+  println("Isetup finished");
 }
 
 static bool read_temp(enum sensor s, double *temp)
@@ -97,7 +110,7 @@ static bool read_temp(enum sensor s, double *temp)
   if (r)
   {
     sprintf(buf, "EendTransmission failed: %d", r);
-    Serial.println(buf);
+    println(buf);
     return false;
   }
    
@@ -114,7 +127,7 @@ static bool read_temp(enum sensor s, double *temp)
     
   if (bytes[1] & 0x80)
   {
-    Serial.println("Eerror bit set");
+    println("Eerror bit set");
     return false;
   }
 
@@ -129,20 +142,20 @@ static void move_x(int newpos, bool print_errors = 1)
   if (newpos < SERVO_X_MIN)
   {
     if (print_errors)
-      Serial.println("Einvalid x pos");
+      println("Einvalid x pos");
     return;
   }
   if (newpos > SERVO_X_MAX)
   {
     if (print_errors)
-      Serial.println("Einvalid x pos");
+      println("Einvalid x pos");
     return;
   }
 
   x = newpos;
   servo_x.write(x);
   sprintf(buf, "Ix: %d", x);
-  Serial.println(buf);
+  println(buf);
 }
 
 static void move_y(int newpos, bool print_errors = 1)
@@ -150,20 +163,20 @@ static void move_y(int newpos, bool print_errors = 1)
   if (newpos < SERVO_Y_MIN)
   {
     if (print_errors)
-      Serial.println("Einvalid y pos");
+      println("Einvalid y pos");
     return;
   }
   if (newpos > SERVO_Y_MAX)
   {
     if (print_errors)
-      Serial.println("Einvalid y pos");
+      println("Einvalid y pos");
     return;
   }
 
   y = newpos;
   servo_y.write(y);
   sprintf(buf, "Iy: %d", y);
-  Serial.println(buf);
+  println(buf);
 }
 
 static bool joy_suspended = false;
@@ -184,7 +197,7 @@ static void read_joystick(int &h, int &h_scaled, int &v, int &v_scaled, bool &pu
   if (debug)
   {
     sprintf(buf, "Ijoy prescale: %d %d %d", h, v, pushed);
-    Serial.println(buf);
+    println(buf);
   }
 
   if (h < JOY_HORZ_CENTER)
@@ -209,7 +222,8 @@ void loop()
     if (abs(h_scaled) > 10 || abs(v_scaled) > 10 || pushed)
     {
       sprintf(command, "Ijoy: %d %d %d", h_scaled, v_scaled, pushed);
-      Serial.println(command);
+      println(command);
+  
       if (!pushed)
       {
         if (abs(h_scaled) > 10)
@@ -236,7 +250,7 @@ void loop()
   {
     if (len >= 100)
     {
-      Serial.println("Etoo long command");
+      println("Etoo long command");
       return;
     }
     
@@ -244,7 +258,7 @@ void loop()
     {
       if (millis() > start + 1000)
       {
-        Serial.println("Ecommand input timeout");
+        println("Ecommand input timeout");
         return;
       }
     }
@@ -256,7 +270,7 @@ void loop()
   
   if (len < 1)
   {
-    Serial.println("Etoo short command");
+    println("Etoo short command");
     return;
   }
 
@@ -271,7 +285,7 @@ void loop()
       else
         if (sscanf(command + 1, "%d", &offset) != 1)
         {
-          Serial.println("Einvalid format");
+          println("Einvalid format");
           return;
         }
 
@@ -288,13 +302,13 @@ void loop()
     case 'p':
       if (len < 3)
       {
-        Serial.println("Einvalid p command");
+        println("Einvalid p command");
         return;
       }
 
       if (sscanf(command + 2, "%d", &offset) != 1)
       {
-        Serial.println("Einvalid p format");
+        println("Einvalid p format");
         return;
       }
 
@@ -303,7 +317,7 @@ void loop()
       else if (command[1] == 'y')
         move_y(offset);
       else
-        Serial.println("Einvalid p? command");
+        println("Einvalid p? command");
 
       break;
     case 't':
@@ -314,7 +328,7 @@ void loop()
 
       if (len < 2)
       {
-        Serial.println("Etoo short t command");
+        println("Etoo short t command");
         return;
       }
 
@@ -324,7 +338,7 @@ void loop()
         s = ambient;
       else
       {
-        Serial.println("Einvalid sensor");
+        println("Einvalid sensor");
         return;
       }
 
@@ -335,18 +349,18 @@ void loop()
         return;
 
       if (command[1] == 'o')
-        Serial.print("Itemp object: ");
+        print("Itemp object: ");
       else if (command[1] == 'a')
-        Serial.print("Itemp ambient: ");
+        print("Itemp ambient: ");
 
-      Serial.println(temp);
+      println(temp);
  
       break;
     }
     case 'j':
       if (len < 2)
       {
-        Serial.println("Einvalid j command");
+        println("Einvalid j command");
         return;
       }
       
@@ -355,11 +369,11 @@ void loop()
       else if (command[1] == 'e')
         joy_suspended = false;
       else
-        Serial.println("Einvalid j command");
+        println("Einvalid j command");
       
       break;
     default:
-      Serial.println("Einvalid command");
+      println("Einvalid command");
   }
 }
 
