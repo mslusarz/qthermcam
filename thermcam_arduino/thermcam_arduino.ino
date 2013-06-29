@@ -16,6 +16,7 @@
  */
 #include <Servo.h>
 #include <Wire.h>
+#include <IRremote.h>
 
 static const int debug = 0;
 static const bool joy_enabled = true;
@@ -56,6 +57,10 @@ static int y = 90;
 
 static Servo servo_x;
 static Servo servo_y;
+
+#define IR_RECV_PIN 6
+static IRrecv irrecv(IR_RECV_PIN);
+static decode_results results;
 
 static char buf[100];
 
@@ -109,6 +114,7 @@ void setup()
   }
   
   Wire.begin();
+  irrecv.enableIRIn();
   
   Serial.println("Isetup finished");
 }
@@ -205,6 +211,17 @@ static bool joystick_button_pressed()
   return !digitalRead(JOY_BUTTON_PIN);
 }
 
+static bool infrared_stop_button_pressed()
+{
+  bool b = irrecv.decode(&results);
+  if (b)
+  {
+    b = results.decode_type == NEC && results.value == 0x4BB5A05F;
+    irrecv.resume();
+  }
+  return b;
+}
+
 static void read_joystick(int &h, int &h_scaled, int &v, int &v_scaled, bool &pressed)
 {
   read_joystick(h, v);
@@ -259,7 +276,7 @@ static void scan(int left, int top, int right, int bottom)
     for (k = 0; k < 3 && !aborted; k++)
     {
       delay(100);
-      aborted = joystick_button_pressed();
+      aborted = joystick_button_pressed() || infrared_stop_button_pressed();
     }
 
     for (int j = left; j <= right && !aborted; j++)
@@ -276,7 +293,7 @@ static void scan(int left, int top, int right, int bottom)
         for (k = 0; k < 50 && !aborted; k++)
         {
           delay(100);
-          aborted = joystick_button_pressed();
+          aborted = joystick_button_pressed() || infrared_stop_button_pressed();
         }
       }
 
@@ -287,7 +304,7 @@ static void scan(int left, int top, int right, int bottom)
         sprintf(buf, "IA %d %d ", x, y);
         print(buf);
         println(temp);
-        aborted = joystick_button_pressed();
+        aborted = joystick_button_pressed() || infrared_stop_button_pressed();
       }
     }
   }
@@ -372,6 +389,57 @@ void loop()
       }
     } 
   }
+
+  if (irrecv.decode(&results))
+  {
+    int type = results.decode_type;
+    unsigned long val = results.value;
+    irrecv.resume();
+
+    if (type == NEC)
+    {
+      static unsigned long last_value;
+      static int left = 0, top;
+      
+      if (val == 0xFFFFFFFF)
+        val = last_value;
+
+      switch (val)
+      {
+        case 0x4BB5C03F:
+          move_x(x - 10, false);
+          break;
+        case 0x4BB500FF:
+          move_y(y + 10, false);
+          break;
+        case 0x4BB540BF:
+          move_x(x + 10, false);
+          break;
+        case 0x4BB5807F:
+          move_y(y - 10, false);
+          break;
+        case 0x4BB57887:
+          left = x;
+          top = y;
+          break;
+        case 0x4BB538C7:
+          if (mode == MANUAL)
+            println("Einfrared start button is disabled in manual mode");
+          else
+            scan(left, top, x, y);
+          break;
+        default:
+          println("Unknown IR code ");
+          if (mode == MANUAL || debug)
+            Serial.println(val, HEX);
+          break;
+      }
+
+      last_value = val;
+    }
+    
+  }
+
  
   if (!Serial.available())
     return;
