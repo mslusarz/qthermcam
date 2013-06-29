@@ -17,7 +17,7 @@
 #include <Servo.h>
 #include <Wire.h>
 
-static const bool debug = false;
+static const int debug = 0;
 static const bool joy_enabled = true;
 
 #define SERIAL_BAUD_RATE 9600
@@ -49,6 +49,8 @@ static int JOY_VERT_CENTER = JOY_VERT_DEFAULT_CENTER;
 enum sensor {ambient = 0x6, object = 0x7};
 static bool read_temp(enum sensor s, double *temp);
 
+static enum {AUTO, MANUAL} mode = AUTO;
+
 static int x = 90;
 static int y = 90;
 
@@ -59,23 +61,34 @@ static char buf[100];
 
 static inline void print(const char *s)
 {
-  Serial.print(s);
+  if (mode == MANUAL || debug)
+    Serial.print(s);
 }
+
+static inline void print(double f)
+{
+  if (mode == MANUAL || debug)
+    Serial.print(f);
+}
+
 static inline void println(const char *s)
 {
-  Serial.println(s);
+  if (mode == MANUAL || debug)
+    Serial.println(s);
 }
+
 static inline void println(double f)
 {
-  Serial.println(f);
+  if (mode == MANUAL || debug)
+    Serial.println(f);
 }
 
 void setup()
 {
   Serial.begin(SERIAL_BAUD_RATE);
-  println("Isetup");
+  Serial.println("Isetup");
   sprintf(buf, "Idims:%d,%d,%d,%d", SERVO_X_MIN, SERVO_X_MAX, SERVO_Y_MIN, SERVO_Y_MAX);
-  println(buf);
+  Serial.println(buf);
 
   servo_x.attach(SERVO_X_PIN);
   servo_y.attach(SERVO_Y_PIN);
@@ -90,14 +103,14 @@ void setup()
     int h, v;
     read_joystick(h, v);
     if (h > JOY_HORZ_CENTER + 10 || h < JOY_HORZ_CENTER - 10 || v > JOY_VERT_CENTER + 10 || v < JOY_VERT_CENTER - 10)
-      println("Ejoystick needs recalibration!");
+      Serial.println("Ejoystick needs recalibration!");
     JOY_HORZ_CENTER = h;
     JOY_VERT_CENTER = v;
   }
   
   Wire.begin();
   
-  println("Isetup finished");
+  Serial.println("Isetup finished");
 }
 
 static bool read_temp(enum sensor s, double *temp)
@@ -187,16 +200,21 @@ static void read_joystick(int &h, int &v)
   v = analogRead(JOY_VERT_PIN);
 }
 
-static void read_joystick(int &h, int &h_scaled, int &v, int &v_scaled, bool &pushed)
+static bool joystick_button_pressed()
+{
+  return !digitalRead(JOY_BUTTON_PIN);
+}
+
+static void read_joystick(int &h, int &h_scaled, int &v, int &v_scaled, bool &pressed)
 {
   read_joystick(h, v);
-  pushed = !digitalRead(JOY_BUTTON_PIN);
+  pressed = joystick_button_pressed();
   h_scaled = 0;
   v_scaled = 0;
  
-  if (debug)
+  if (debug >= 2)
   {
-    sprintf(buf, "Ijoy prescale: %d %d %d", h, v, pushed);
+    sprintf(buf, "Ijoy prescale: %d %d %d", h, v, pressed);
     println(buf);
   }
 
@@ -210,21 +228,97 @@ static void read_joystick(int &h, int &h_scaled, int &v, int &v_scaled, bool &pu
     v_scaled = max(-100, map(v, JOY_VERT_CENTER, JOY_VERT_DOWN,      0, -100));
 }
 
+static void scan(int left, int top, int right, int bottom)
+{
+  bool aborted = false;
+  int tmp;
+  sprintf(buf, "Iscanning %d, %d -> %d, %d", left, top, right, bottom);
+  println(buf);
+
+  if (top < bottom)
+  {
+    tmp = top;
+    top = bottom;
+    bottom = tmp;
+  }
+
+  if (left > right)
+  {
+    tmp = left;
+    left = right;
+    right = tmp;
+  }
+
+  for (int i = top; i >= bottom && !aborted; i--)
+  {
+    int k, t;
+    move_y(i);
+    move_x(left);
+    
+    // wait for servos
+    for (k = 0; k < 3 && !aborted; k++)
+    {
+      delay(100);
+      aborted = joystick_button_pressed();
+    }
+
+    for (int j = left; j <= right && !aborted; j++)
+    {
+      move_x(j);
+
+      // servo and sensor stabilisation
+      delay(100);
+
+      double temp;
+      for (t = 0; t < 10 && !read_temp(object, &temp) && !aborted; ++t)
+      {
+        // wait 5000ms
+        for (k = 0; k < 50 && !aborted; k++)
+        {
+          delay(100);
+          aborted = joystick_button_pressed();
+        }
+      }
+
+      if (t == 10) // sensor is broken/disconnected
+        aborted = true; // don't bother reading more data
+      else
+      {
+        sprintf(buf, "IA %d %d ", x, y);
+        print(buf);
+        println(temp);
+        aborted = joystick_button_pressed();
+      }
+    }
+  }
+
+  if (aborted)
+  {
+    while (joystick_button_pressed())
+      delay(50);
+    delay(100);
+  }
+  println("Iscanning finished");
+}
+
 void loop()
 {
   char command[100];
   int len = 0, offset = 0;
+
   if (joy_enabled && !joy_suspended)
   {
     int h, h_scaled, v, v_scaled;
-    bool pushed;
-    read_joystick(h, h_scaled, v, v_scaled, pushed);
-    if (abs(h_scaled) > 10 || abs(v_scaled) > 10 || pushed)
+    bool pressed;
+    
+    read_joystick(h, h_scaled, v, v_scaled, pressed);
+    
+    if (abs(h_scaled) > 10 || abs(v_scaled) > 10 || pressed)
     {
-      sprintf(command, "Ijoy: %d %d %d", h_scaled, v_scaled, pushed);
+      sprintf(command, "Ijoy: %d %d %d", h_scaled, v_scaled, pressed);
       println(command);
   
-      if (!pushed)
+      if (!pressed)
       {
         if (abs(h_scaled) > 10)
         {
@@ -232,18 +326,56 @@ void loop()
           // if user wants to set position precisely
           if (abs(h_scaled) < 20)
             delay(100); // wait for joystick to bounce off
+          else
+            delay(10);
         }
+  
         if (abs(v_scaled) > 10)
         {
           move_y(y + v_scaled / 10, false);
           if (abs(v_scaled) < 20)
             delay(100);
+          else
+            delay(10);
         }
+      }
+      else
+      {
+        static unsigned long lastButtonTime = 0;
+        
+        if (mode == MANUAL)
+        {
+          if (millis() - lastButtonTime > 1000)
+            println("Ejoystick button is disabled in manual mode");
+        }
+        else
+        {
+          static int left = 0, top;
+          
+          while (joystick_button_pressed())
+            delay(50);
+          delay(100);
+
+          if (left == 0)
+          {
+            left = x;
+            top = y;
+          }
+          else
+          {
+            scan(left, top, x, y);
+            left = 0;
+          }
+        }
+        
+        lastButtonTime = millis();
       }
     } 
   }
+ 
   if (!Serial.available())
     return;
+  
   long start = millis();
 
   do
@@ -371,6 +503,15 @@ void loop()
       else
         println("Einvalid j command");
       
+      break;
+    case 'm':
+      if (strcmp(command, "mon") == 0) // "manual on"
+        mode = MANUAL;
+      else if (strcmp(command, "moff") == 0) // "manual off"
+        mode = AUTO;
+      else
+        println("Einvalid m command");
+
       break;
     default:
       println("Einvalid command");

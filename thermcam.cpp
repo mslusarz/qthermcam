@@ -110,6 +110,8 @@ bool ThermCam::doConnect(const QString &path)
 
 void ThermCam::doDisconnect()
 {
+	sendCommand("moff!");
+
 	disconnect(notifier, NULL, this, NULL);
 	delete notifier;
 	notifier = NULL;
@@ -257,7 +259,7 @@ void ThermCam::fdActivated(int fd)
 	}
 	else if (msg.startsWith("Isetup finished"))
 	{
-		sendCommand("px90!py90!to!ta!");
+		sendCommand("mon!px90!py90!to!ta!");
 	}
 	buffer.truncate(0);
 }
