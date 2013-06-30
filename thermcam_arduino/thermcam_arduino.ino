@@ -14,77 +14,54 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+// Arduino's buggy build system - if I don't include these headers here, they won't be available to other files
 #include <Servo.h>
 #include <Wire.h>
 #include <IRremote.h>
 
-static const int debug = 0;
+#include "common.h"
+#include "ir.h"
+#include "joy.h"
+#include "servos.h"
+#include "temp.h"
+
+const int debug = 0;
 static const bool joy_enabled = true;
+static bool joy_suspended = false;
 
 #define SERIAL_BAUD_RATE 9600
 
-#define SERVO_X_PIN 9
-#define SERVO_X_MIN 30
-#define SERVO_X_MAX 170
-
-#define SERVO_Y_PIN 8
-#define SERVO_Y_MIN 30
-#define SERVO_Y_MAX 165
-
-#define JOY_BUTTON_PIN 4
-#define JOY_HORZ_PIN 2
-#define JOY_VERT_PIN 3
-
-#define JOY_HORZ_LEFT   0
-#define JOY_HORZ_DEFAULT_CENTER 491
-static int JOY_HORZ_CENTER = JOY_HORZ_DEFAULT_CENTER;
-#define JOY_HORZ_RIGHT  1008
-
-#define JOY_VERT_UP     95
-#define JOY_VERT_DEFAULT_CENTER 547
-static int JOY_VERT_CENTER = JOY_VERT_DEFAULT_CENTER;
-#define JOY_VERT_DOWN   1023
-
-#define SENSOR_SLAVE_ADDRESS 0x5A
-
-enum sensor {ambient = 0x6, object = 0x7};
-static bool read_temp(enum sensor s, double *temp);
-
 static enum {AUTO, MANUAL} mode = AUTO;
 
-static int x = 90;
-static int y = 90;
+char buf[100];
 
-static Servo servo_x;
-static Servo servo_y;
-
-#define IR_RECV_PIN 6
-static IRrecv irrecv(IR_RECV_PIN);
-static decode_results results;
-
-static char buf[100];
-
-static inline void print(const char *s)
+bool use_serial()
 {
-  if (mode == MANUAL || debug)
+  return mode == MANUAL || debug;
+}
+
+void print(const char *s)
+{
+  if (use_serial())
     Serial.print(s);
 }
 
-static inline void print(double f)
+void print(double f)
 {
-  if (mode == MANUAL || debug)
+  if (use_serial())
     Serial.print(f);
 }
 
-static inline void println(const char *s)
+void println(const char *s)
 {
-  if (mode == MANUAL || debug)
+  if (use_serial())
     Serial.println(s);
 }
 
-static inline void println(double f)
+void println(double f)
 {
-  if (mode == MANUAL || debug)
+  if (use_serial())
     Serial.println(f);
 }
 
@@ -92,158 +69,17 @@ void setup()
 {
   Serial.begin(SERIAL_BAUD_RATE);
   Serial.println("Isetup");
-  sprintf(buf, "Idims:%d,%d,%d,%d", SERVO_X_MIN, SERVO_X_MAX, SERVO_Y_MIN, SERVO_Y_MAX);
-  Serial.println(buf);
 
-  servo_x.attach(SERVO_X_PIN);
-  servo_y.attach(SERVO_Y_PIN);
-  servo_x.write(x);
-  servo_y.write(y);
-  
+  servo_init();
   if (joy_enabled)
-  {
-    pinMode(JOY_BUTTON_PIN, INPUT);
-    digitalWrite(JOY_BUTTON_PIN, HIGH);
-
-    int h, v;
-    read_joystick(h, v);
-    if (h > JOY_HORZ_CENTER + 10 || h < JOY_HORZ_CENTER - 10 || v > JOY_VERT_CENTER + 10 || v < JOY_VERT_CENTER - 10)
-      Serial.println("Ejoystick needs recalibration!");
-    JOY_HORZ_CENTER = h;
-    JOY_VERT_CENTER = v;
-  }
+    joy_init();
+  ir_init();
   
-  Wire.begin();
-  irrecv.enableIRIn();
+  temp_init();
   
   Serial.println("Isetup finished");
 }
 
-static bool read_temp(enum sensor s, double *temp)
-{
-  int r;
-  
-  Wire.beginTransmission(SENSOR_SLAVE_ADDRESS);
-  Wire.write(s);
-  r = Wire.endTransmission(false);
-  if (r)
-  {
-    sprintf(buf, "EendTransmission failed: %d", r);
-    println(buf);
-    return false;
-  }
-   
-  unsigned char bytes[3];
-  int i = 0;
-  Wire.requestFrom(SENSOR_SLAVE_ADDRESS, 3);
-  while (Wire.available())
-  {
-    char c = Wire.read();
-    if (i < 3)
-      bytes[i] = c;
-    i++;
-  }
-    
-  if (bytes[1] & 0x80)
-  {
-    println("Eerror bit set");
-    return false;
-  }
-
-  *temp = ((bytes[1] & 0x7F) << 8) + bytes[0];
-  *temp = (*temp * 0.02) - 273.15;
-  
-  return true;
-}
-
-static void move_x(int newpos, bool print_errors = 1)
-{
-  if (newpos < SERVO_X_MIN)
-  {
-    if (print_errors)
-      println("Einvalid x pos");
-    return;
-  }
-  if (newpos > SERVO_X_MAX)
-  {
-    if (print_errors)
-      println("Einvalid x pos");
-    return;
-  }
-
-  x = newpos;
-  servo_x.write(x);
-  sprintf(buf, "Ix: %d", x);
-  println(buf);
-}
-
-static void move_y(int newpos, bool print_errors = 1)
-{
-  if (newpos < SERVO_Y_MIN)
-  {
-    if (print_errors)
-      println("Einvalid y pos");
-    return;
-  }
-  if (newpos > SERVO_Y_MAX)
-  {
-    if (print_errors)
-      println("Einvalid y pos");
-    return;
-  }
-
-  y = newpos;
-  servo_y.write(y);
-  sprintf(buf, "Iy: %d", y);
-  println(buf);
-}
-
-static bool joy_suspended = false;
-
-static void read_joystick(int &h, int &v)
-{
-  h = analogRead(JOY_HORZ_PIN);
-  v = analogRead(JOY_VERT_PIN);
-}
-
-static bool joystick_button_pressed()
-{
-  return !digitalRead(JOY_BUTTON_PIN);
-}
-
-static bool infrared_stop_button_pressed()
-{
-  bool b = irrecv.decode(&results);
-  if (b)
-  {
-    b = results.decode_type == NEC && results.value == 0x4BB5A05F;
-    irrecv.resume();
-  }
-  return b;
-}
-
-static void read_joystick(int &h, int &h_scaled, int &v, int &v_scaled, bool &pressed)
-{
-  read_joystick(h, v);
-  pressed = joystick_button_pressed();
-  h_scaled = 0;
-  v_scaled = 0;
- 
-  if (debug >= 2)
-  {
-    sprintf(buf, "Ijoy prescale: %d %d %d", h, v, pressed);
-    println(buf);
-  }
-
-  if (h < JOY_HORZ_CENTER)
-    h_scaled = max(-100, map(h, JOY_HORZ_LEFT,   JOY_HORZ_CENTER, -100, 0));
-  else if (h > JOY_HORZ_CENTER)
-    h_scaled = min(100,  map(h, JOY_HORZ_CENTER, JOY_HORZ_RIGHT,     0, 100));
-  if (v < JOY_VERT_CENTER)
-    v_scaled = min(100,  map(v, JOY_VERT_UP,     JOY_VERT_CENTER, 100, 0));
-  else if (v > JOY_VERT_CENTER)
-    v_scaled = max(-100, map(v, JOY_VERT_CENTER, JOY_VERT_DOWN,      0, -100));
-}
 
 static void scan(int left, int top, int right, int bottom)
 {
@@ -390,57 +226,36 @@ void loop()
     } 
   }
 
-  if (irrecv.decode(&results))
+  enum ir_button button = infrared_any_button_pressed();
+  static int left = 0, top;
+  switch (button)
   {
-    int type = results.decode_type;
-    unsigned long val = results.value;
-    irrecv.resume();
-
-    if (type == NEC)
-    {
-      static unsigned long last_value;
-      static int left = 0, top;
-      
-      if (val == 0xFFFFFFFF)
-        val = last_value;
-
-      switch (val)
-      {
-        case 0x4BB5C03F:
-          move_x(x - 10, false);
-          break;
-        case 0x4BB500FF:
-          move_y(y + 10, false);
-          break;
-        case 0x4BB540BF:
-          move_x(x + 10, false);
-          break;
-        case 0x4BB5807F:
-          move_y(y - 10, false);
-          break;
-        case 0x4BB57887:
-          left = x;
-          top = y;
-          break;
-        case 0x4BB538C7:
-          if (mode == MANUAL)
-            println("Einfrared start button is disabled in manual mode");
-          else
-            scan(left, top, x, y);
-          break;
-        default:
-          println("Unknown IR code ");
-          if (mode == MANUAL || debug)
-            Serial.println(val, HEX);
-          break;
-      }
-
-      last_value = val;
-    }
-    
+    case LEFT:
+      move_x(x - 10, false);
+      break;
+    case UP:
+      move_y(y + 10, false);
+      break;
+    case RIGHT:
+      move_x(x + 10, false);
+      break;
+    case DOWN:
+      move_y(y - 10, false);
+      break;
+    case LEFT_TOP:
+      left = x;
+      top = y;
+      break;
+    case RIGHT_BOTTOM:
+      if (mode == MANUAL)
+        println("Einfrared start button is disabled in manual mode");
+      else
+        scan(left, top, x, y);
+      break;
+    default:
+      break;
   }
 
- 
   if (!Serial.available())
     return;
   
