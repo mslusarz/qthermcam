@@ -173,24 +173,33 @@ void loop()
   
       if (!pressed)
       {
+        int sleep = 0;
+
         if (abs(h_scaled) > 10)
         {
-          move_x(x + h_scaled / 10, false);
-          // if user wants to set position precisely
-          if (abs(h_scaled) < 20)
-            delay(100); // wait for joystick to bounce off
-          else
-            delay(10);
+          if (move_x(x + h_scaled / 10, false))
+          {
+            // if user wants to set position precisely
+            if (abs(h_scaled) < 20)
+              sleep = 100; // wait for joystick to bounce off
+            else
+              sleep = 20;
+          }
         }
   
         if (abs(v_scaled) > 10)
         {
-          move_y(y + v_scaled / 10, false);
-          if (abs(v_scaled) < 20)
-            delay(100);
-          else
-            delay(10);
+          if (move_y(y + v_scaled / 10, false))
+          {
+            if (abs(v_scaled) < 20)
+              sleep = 100;
+            else
+              sleep = sleep > 20 ? sleep : 20;
+          }
         }
+
+        if (sleep)
+          delay(sleep);
       }
       else
       {

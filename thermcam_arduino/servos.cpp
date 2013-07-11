@@ -45,45 +45,65 @@ void servo_init()
   servo_y.write(y);
 }
 
-void move_x(int newpos, bool print_errors)
+bool move_x(int newpos, bool print_errors)
 {
   if (newpos < SERVO_X_MIN)
   {
-    if (print_errors)
-      println("Einvalid x pos");
-    return;
+    if (x == SERVO_X_MIN)
+    {
+      if (print_errors)
+        println("Einvalid x pos");
+      return false;
+    }
+    newpos = SERVO_X_MIN;
   }
+  
   if (newpos > SERVO_X_MAX)
   {
-    if (print_errors)
-      println("Einvalid x pos");
-    return;
+    if (x == SERVO_X_MAX)
+    {
+      if (print_errors)
+        println("Einvalid x pos");
+      return false;
+    }
+    newpos = SERVO_X_MAX;
   }
 
   x = newpos;
   servo_x.write(x);
   sprintf(buf, "Ix: %d", x);
   println(buf);
+  return true;
 }
 
-void move_y(int newpos, bool print_errors)
+bool move_y(int newpos, bool print_errors)
 {
   if (newpos < SERVO_Y_MIN)
   {
-    if (print_errors)
-      println("Einvalid y pos");
-    return;
+    if (y == SERVO_Y_MIN)
+    {
+      if (print_errors)
+        println("Einvalid y pos");
+      return false;
+    }
+    newpos = SERVO_Y_MIN;
   }
+  
   if (newpos > SERVO_Y_MAX)
   {
-    if (print_errors)
-      println("Einvalid y pos");
-    return;
+    if (y == SERVO_Y_MAX)
+    {
+      if (print_errors)
+        println("Einvalid y pos");
+      return false;
+    }
+    newpos = SERVO_Y_MAX;
   }
 
   y = newpos;
   servo_y.write(y);
   sprintf(buf, "Iy: %d", y);
   println(buf);
+  return true;
 }
 
