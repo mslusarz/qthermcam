@@ -17,6 +17,7 @@
 
 #include "temp.h"
 #include "common.h"
+#include "servos.h"
 #include <Wire.h>
 
 #define SENSOR_SLAVE_ADDRESS 0x5A
@@ -32,6 +33,7 @@ bool read_temp(enum sensor s, double *temp)
   
   Wire.beginTransmission(SENSOR_SLAVE_ADDRESS);
   Wire.write(s);
+  servos_alloc_time(300);
   r = Wire.endTransmission(false);
   if (r)
   {
@@ -42,6 +44,7 @@ bool read_temp(enum sensor s, double *temp)
    
   unsigned char bytes[3];
   int i = 0;
+  servos_alloc_time(550);
   int ret = Wire.requestFrom(SENSOR_SLAVE_ADDRESS, 3);
   if (ret != 3)
   {

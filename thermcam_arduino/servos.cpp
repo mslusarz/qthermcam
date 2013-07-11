@@ -107,3 +107,24 @@ bool move_y(int newpos, bool print_errors)
   return true;
 }
 
+/* Servos need to be refreshed every 20ms, so servo library uses hardware timer (timer1 on
+   Uno) to do this. If this timer interrupt will be delayed because of some other lengthy
+   interrupt (like I2C communication), library will miss deadline and servo will move
+   randomly (20us delay is enough to trigger it). So if we want to run our interrupt-using
+   code and do not mess up servos, we need to wait for big enough window, by watching when
+   timer interrupt is supposed to trigger and delaying our code after it.
+   Yes, it sucks.
+ */
+void servos_alloc_time(int us)
+{
+  int step = us / 10;
+  if (step == 0)
+    step = 1;
+#if defined(_useTimer1) && !defined(_useTimer2) && !defined(_useTimer3) && !defined(_useTimer4) && !defined(_useTimer5)
+  while (abs(OCR1A - TCNT1) < us * 2) // where is the "2" factor coming from?
+#else
+  #error unhandled configuration
+#endif
+    delayMicroseconds(step);
+}
+
