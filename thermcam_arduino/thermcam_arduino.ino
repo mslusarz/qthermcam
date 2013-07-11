@@ -30,7 +30,7 @@ const int debug = 0;
 static const bool joy_enabled = true;
 static bool joy_suspended = false;
 
-#define SERIAL_BAUD_RATE 9600
+#define SERIAL_BAUD_RATE 115200
 
 static enum {AUTO, MANUAL} mode = AUTO;
 

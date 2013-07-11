@@ -84,7 +84,7 @@ bool ThermCam::doConnect(const QString &path)
 	argp.c_cflag |= CREAD;
 	argp.c_cflag |= CLOCAL;
 
-	cfsetspeed(&argp, B9600);
+	cfsetspeed(&argp, B115200);
 
 	emit info("new port settings: ");
 	emit info(describeTermiosInfo(argp));
