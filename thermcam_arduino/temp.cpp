@@ -42,7 +42,14 @@ bool read_temp(enum sensor s, double *temp)
    
   unsigned char bytes[3];
   int i = 0;
-  Wire.requestFrom(SENSOR_SLAVE_ADDRESS, 3);
+  int ret = Wire.requestFrom(SENSOR_SLAVE_ADDRESS, 3);
+  if (ret != 3)
+  {
+    sprintf(buf, "ErequestFrom returned %d", ret);
+    println(buf);
+    return false;
+  }
+
   while (Wire.available())
   {
     char c = Wire.read();
