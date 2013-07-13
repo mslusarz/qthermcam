@@ -51,8 +51,10 @@ bool move_x(int newpos, bool print_errors)
   {
     if (x == SERVO_X_MIN)
     {
+      #if TC_DEBUG > 0
       if (print_errors)
-        println("Einvalid x pos");
+        println("Es1"); // invalid x pos
+      #endif
       return false;
     }
     newpos = SERVO_X_MIN;
@@ -62,8 +64,10 @@ bool move_x(int newpos, bool print_errors)
   {
     if (x == SERVO_X_MAX)
     {
+      #if TC_DEBUG > 0
       if (print_errors)
-        println("Einvalid x pos");
+        println("Es2"); // invalid x pos
+      #endif
       return false;
     }
     newpos = SERVO_X_MAX;
@@ -82,8 +86,10 @@ bool move_y(int newpos, bool print_errors)
   {
     if (y == SERVO_Y_MIN)
     {
+      #if TC_DEBUG > 0
       if (print_errors)
-        println("Einvalid y pos");
+        println("Es3"); // invalid y pos
+      #endif
       return false;
     }
     newpos = SERVO_Y_MIN;
@@ -93,8 +99,10 @@ bool move_y(int newpos, bool print_errors)
   {
     if (y == SERVO_Y_MAX)
     {
+      #if TC_DEBUG > 0
       if (print_errors)
-        println("Einvalid y pos");
+        println("Es4"); // invalid y pos
+      #endif
       return false;
     }
     newpos = SERVO_Y_MAX;

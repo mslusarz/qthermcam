@@ -30,7 +30,6 @@
 #include "servos.h"
 #include "temp.h"
 
-const int debug = 0;
 static const bool joy_enabled = true;
 static bool joy_suspended = false;
 
@@ -42,7 +41,7 @@ char buf[100];
 
 bool use_serial()
 {
-  return mode == MANUAL || debug;
+  return mode == MANUAL || TC_DEBUG;
 }
 
 void print(const char *s)
@@ -74,7 +73,7 @@ void println(double f)
 void setup()
 {
   Serial.begin(SERIAL_BAUD_RATE);
-  Serial.println("Isetup");
+  Serial.println("Is"); // setup
 
   pinMode(LASER_ENABLE_PIN, OUTPUT);
   digitalWrite(LASER_ENABLE_PIN, HIGH);
@@ -86,7 +85,7 @@ void setup()
   temp_init();
   sd_init();
   
-  Serial.println("Isetup finished");
+  Serial.println("Isf"); // setup finished
 }
 
 #define MAX_TEMPS 10
@@ -96,7 +95,7 @@ static void scan(int left, int top, int right, int bottom)
 {
   bool aborted = false;
   int tmp, temp_count;
-  sprintf(buf, "Iscanning %d, %d -> %d, %d", left, top, right, bottom);
+  sprintf(buf, "Isc %d, %d -> %d, %d", left, top, right, bottom); // scanning
   println(buf);
 
   if (top < bottom)
@@ -175,12 +174,14 @@ static void scan(int left, int top, int right, int bottom)
   else
     sd_close_file();
 
-  println("Iscanning finished");
+  println("Isc f"); // scanning finished
 }
+
+#define MAX_COMMAND_LENGTH 50
+static char command[MAX_COMMAND_LENGTH];
 
 void loop()
 {
-  char command[100];
   int len = 0, offset = 0;
 
   if (joy_enabled && !joy_suspended)
@@ -192,8 +193,10 @@ void loop()
     
     if (abs(h_scaled) > 10 || abs(v_scaled) > 10 || pressed)
     {
-      sprintf(command, "Ijoy: %d %d %d", h_scaled, v_scaled, pressed);
-      println(command);
+      #if TC_DEBUG > 0
+      sprintf(buf, "Ijoy: %d %d %d", h_scaled, v_scaled, pressed);
+      println(buf);
+      #endif
   
       if (!pressed)
       {
@@ -232,7 +235,7 @@ void loop()
         if (mode == MANUAL)
         {
           if (millis() - lastButtonTime > 1000)
-            println("Ejoystick button is disabled in manual mode");
+            println("E00"); // joystick button is disabled in manual mode
         }
         else
         {
@@ -281,7 +284,7 @@ void loop()
       break;
     case RIGHT_BOTTOM:
       if (mode == MANUAL)
-        println("Einfrared start button is disabled in manual mode");
+        println("E01"); // infrared start button is disabled in manual mode
       else
         scan(left, top, x, y);
       break;
@@ -296,9 +299,9 @@ void loop()
 
   do
   {
-    if (len >= 100)
+    if (len >= MAX_COMMAND_LENGTH)
     {
-      println("Etoo long command");
+      println("E02"); // too long command
       return;
     }
     
@@ -306,7 +309,7 @@ void loop()
     {
       if (millis() > start + 1000)
       {
-        println("Ecommand input timeout");
+        println("E03"); // command input timeout
         return;
       }
     }
@@ -318,7 +321,7 @@ void loop()
   
   if (len < 1)
   {
-    println("Etoo short command");
+    println("E04"); // too short command
     return;
   }
 
@@ -333,7 +336,7 @@ void loop()
       else
         if (sscanf(command + 1, "%d", &offset) != 1)
         {
-          println("Einvalid format");
+          println("E05"); // invalid format
           return;
         }
 
@@ -350,13 +353,13 @@ void loop()
     case 'p':
       if (len < 3)
       {
-        println("Einvalid p command");
+        println("E06"); // invalid p command
         return;
       }
 
       if (sscanf(command + 2, "%d", &offset) != 1)
       {
-        println("Einvalid p format");
+        println("E07"); // invalid p format
         return;
       }
 
@@ -365,7 +368,7 @@ void loop()
       else if (command[1] == 'y')
         move_y(offset);
       else
-        println("Einvalid p? command");
+        println("E08"); // invalid p? command
 
       break;
     case 't':
@@ -376,7 +379,7 @@ void loop()
 
       if (len < 2)
       {
-        println("Etoo short t command");
+        println("E09"); // too short t command
         return;
       }
 
@@ -386,7 +389,7 @@ void loop()
         s = ambient;
       else
       {
-        println("Einvalid sensor");
+        println("E10"); // invalid sensor
         return;
       }
 
@@ -397,9 +400,9 @@ void loop()
         return;
 
       if (command[1] == 'o')
-        print("Itemp object: ");
+        print("Ito: "); // temp object
       else if (command[1] == 'a')
-        print("Itemp ambient: ");
+        print("Ita: "); // temp ambient
 
       println(temp);
  
@@ -408,7 +411,7 @@ void loop()
     case 'j':
       if (len < 2)
       {
-        println("Einvalid j command");
+        println("E11"); // invalid j command
         return;
       }
       
@@ -417,7 +420,7 @@ void loop()
       else if (command[1] == 'e')
         joy_suspended = false;
       else
-        println("Einvalid j command");
+        println("E12"); // invalid j command
       
       break;
     case 'm':
@@ -426,11 +429,11 @@ void loop()
       else if (strcmp(command, "moff") == 0) // "manual off"
         mode = AUTO;
       else
-        println("Einvalid m command");
+        println("E13"); // invalid m command
 
       break;
     default:
-      println("Einvalid command");
+      println("E14"); // invalid command
   }
 }
 

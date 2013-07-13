@@ -220,18 +220,18 @@ void ThermCam::fdActivated(int fd)
 			emit scannerMoved_Y(y);
 		}
 	}
-	else if (msg.startsWith("Itemp "))
+	else if (msg.startsWith("Ito:") || msg.startsWith("Ita:"))
 	{
 		bool ok;
-		QString t = msg.mid(6);
+		QString t = msg.mid(2);
 		QStringList tt = t.split(":");
 
 		float temp = tt[1].toFloat(&ok);
 		if (ok)
 		{
-			if (tt[0] == QString("object"))
+			if (tt[0] == QString("o"))
 				emit objectTemperatureRead(x, y, temp);
-			else if (tt[0] == QString("ambient"))
+			else if (tt[0] == QString("a"))
 				emit ambientTemperatureRead(temp);
 
 			if (scan.inProgress)
@@ -257,7 +257,7 @@ void ThermCam::fdActivated(int fd)
 		else
 			emit error(tr("Invalid temp format"));
 	}
-	else if (msg.startsWith("Isetup finished"))
+	else if (msg.startsWith("Isf"))
 	{
 		sendCommand("mon!px90!py90!to!ta!");
 	}

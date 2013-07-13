@@ -45,7 +45,7 @@ void sd_init()
   
   sd_ok = SD.begin(SD_CS_PIN);
   if (!sd_ok)
-    Serial.println("Esd initialization failed!");
+    Serial.println("Ed1"); // sd initialization failed!
 }
 
 static int ymin_, ymax_, xmin_, xmax_;
@@ -104,7 +104,7 @@ void sd_remove_file()
   file.close();
 
   if (!SD.remove(file_name))
-    Serial.println("Ecouldn't remove file");
+    Serial.println("Ed2"); // couldn't remove file
 }
 
 void sd_close_file()

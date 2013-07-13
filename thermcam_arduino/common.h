@@ -2,7 +2,7 @@
 #define TC_COMMON_H
 
 extern char buf[100];
-extern const int debug;
+#define TC_DEBUG 0
 
 bool use_serial();
 
