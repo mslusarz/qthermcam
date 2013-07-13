@@ -15,8 +15,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "sd.h"
-#ifdef SD_ENABLED
-#include "common.h"
+#if SD_ENABLED == 1
 
 #include <SPI.h>
 #include <SD.h>

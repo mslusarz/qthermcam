@@ -18,7 +18,8 @@
 #include "Arduino.h"
 #include "ir.h"
 #include <IRremote.h>
-#include "common.h"
+
+#if IR_ENABLED == 1
 
 #define IR_RECV_PIN 6
 static IRrecv irrecv(IR_RECV_PIN);
@@ -88,4 +89,5 @@ enum ir_button infrared_any_button_pressed()
 
   return NONE;
 }
+#endif
 

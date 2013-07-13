@@ -1,9 +1,9 @@
 #ifndef TC_SD_H
 #define TC_SD_H
 
-//#define SD_ENABLED
+#include "common.h"
 
-#ifdef SD_ENABLED
+#if SD_ENABLED == 1
 void sd_init();
 void sd_open_new_file(int ymin, int ymax, int xmin, int xmax);
 void sd_dump_data(double *temps, int y, int x_start, int x_count);

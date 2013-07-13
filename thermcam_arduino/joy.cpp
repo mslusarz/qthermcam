@@ -17,7 +17,8 @@
 
 #include "Arduino.h"
 #include "joy.h"
-#include "common.h"
+
+#if JOY_ENABLED == 1
 static void read_joystick(int &h, int &v);
 
 #define JOY_BUTTON_PIN 4
@@ -81,4 +82,5 @@ void read_joystick(int &h, int &h_scaled, int &v, int &v_scaled, bool &pressed)
     v_scaled = max(-100, map(v, JOY_VERT_CENTER, JOY_VERT_DOWN,      0, -100));
 }
 
+#endif
 

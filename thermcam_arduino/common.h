@@ -1,6 +1,10 @@
 #ifndef TC_COMMON_H
 #define TC_COMMON_H
 
+#define IR_ENABLED 1
+#define JOY_ENABLED 1
+#define SD_ENABLED 0
+
 extern char buf[100];
 #define TC_DEBUG 0
 

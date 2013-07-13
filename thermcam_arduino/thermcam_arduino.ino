@@ -30,7 +30,6 @@
 #include "servos.h"
 #include "temp.h"
 
-static const bool joy_enabled = true;
 static bool joy_suspended = false;
 
 #define SERIAL_BAUD_RATE 115200
@@ -79,8 +78,7 @@ void setup()
   digitalWrite(LASER_ENABLE_PIN, HIGH);
 
   servo_init();
-  if (joy_enabled)
-    joy_init();
+  joy_init();
   ir_init();
   temp_init();
   sd_init();
@@ -184,7 +182,7 @@ void loop()
 {
   int len = 0, offset = 0;
 
-  if (joy_enabled && !joy_suspended)
+  if (JOY_ENABLED && !joy_suspended)
   {
     int h, h_scaled, v, v_scaled;
     bool pressed;
