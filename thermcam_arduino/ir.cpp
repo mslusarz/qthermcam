@@ -32,10 +32,11 @@ void ir_init()
 
 bool infrared_stop_button_pressed()
 {
-  bool b = irrecv.decode(&results);
+  // https://github.com/mslusarz/Arduino-IRremote.git
+  bool b = irrecv.decode(NEC, &results);
   if (b)
   {
-    b = results.decode_type == NEC && results.value == 0x4BB5A05F;
+    b = results.value == 0x4BB5A05F;
     irrecv.resume();
   }
   return b;
@@ -43,15 +44,11 @@ bool infrared_stop_button_pressed()
 
 enum ir_button infrared_any_button_pressed()
 {
-  if (!irrecv.decode(&results))
+  if (!irrecv.decode(NEC, &results))
     return NONE;
 
-  int type = results.decode_type;
   unsigned long val = results.value;
   irrecv.resume();
-
-  if (type != NEC)
-    return NONE;
 
   static unsigned long last_value;
   
