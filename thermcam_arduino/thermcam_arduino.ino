@@ -65,16 +65,20 @@ void println(double f)
     Serial.println(f);
 }
 
+#define LASER_ENABLE_PIN 5
+
 void setup()
 {
   Serial.begin(SERIAL_BAUD_RATE);
   Serial.println("Isetup");
 
+  pinMode(LASER_ENABLE_PIN, OUTPUT);
+  digitalWrite(LASER_ENABLE_PIN, HIGH);
+
   servo_init();
   if (joy_enabled)
     joy_init();
   ir_init();
-  
   temp_init();
   
   Serial.println("Isetup finished");
