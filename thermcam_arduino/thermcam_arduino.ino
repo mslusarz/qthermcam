@@ -20,9 +20,13 @@
 #include <Wire.h>
 #include <IRremote.h>
 
+//#include <SPI.h>
+//#include <SD.h>
+
 #include "common.h"
 #include "ir.h"
 #include "joy.h"
+#include "sd.h"
 #include "servos.h"
 #include "temp.h"
 
@@ -80,15 +84,18 @@ void setup()
     joy_init();
   ir_init();
   temp_init();
+  sd_init();
   
   Serial.println("Isetup finished");
 }
 
+#define MAX_TEMPS 10
+double temps[MAX_TEMPS];
 
 static void scan(int left, int top, int right, int bottom)
 {
   bool aborted = false;
-  int tmp;
+  int tmp, temp_count;
   sprintf(buf, "Iscanning %d, %d -> %d, %d", left, top, right, bottom);
   println(buf);
 
@@ -105,12 +112,15 @@ static void scan(int left, int top, int right, int bottom)
     left = right;
     right = tmp;
   }
+  sd_open_new_file(bottom, top, left, right);
 
   for (int i = top; i >= bottom && !aborted; i--)
   {
     int k, t;
     move_y(i);
     move_x(left);
+    
+    temp_count = 0;
     
     // wait for servos
     for (k = 0; k < 3 && !aborted; k++)
@@ -141,6 +151,12 @@ static void scan(int left, int top, int right, int bottom)
         aborted = true; // don't bother reading more data
       else
       {
+        temps[temp_count++] = temp;
+        if (temp_count == MAX_TEMPS || j == right)
+        {
+          sd_dump_data(temps, i, j - temp_count + 1, temp_count);
+          temp_count = 0;
+        }
         sprintf(buf, "IA %d %d ", x, y);
         print(buf);
         println(temp);
@@ -151,10 +167,14 @@ static void scan(int left, int top, int right, int bottom)
 
   if (aborted)
   {
+    sd_remove_file();
     while (joystick_button_pressed())
       delay(50);
     delay(100);
   }
+  else
+    sd_close_file();
+
   println("Iscanning finished");
 }
 
