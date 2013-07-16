@@ -20,8 +20,8 @@
 #include <Wire.h>
 #include <IRremote.h>
 
-//#include <SPI.h>
-//#include <SD.h>
+#include <SPI.h>
+#include <SD.h>
 #include <stdlib.h>
 
 #include "common.h"

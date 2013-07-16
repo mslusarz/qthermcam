@@ -3,7 +3,7 @@
 
 #define IR_ENABLED 1
 #define JOY_ENABLED 1
-#define SD_ENABLED 0
+#define SD_ENABLED 1
 
 #define TC_DEBUG 0
 
