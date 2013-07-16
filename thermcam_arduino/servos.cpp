@@ -36,8 +36,14 @@ int y = 90;
 
 void servo_init()
 {
-  sprintf(buf, "Idims:%d,%d,%d,%d", SERVO_X_MIN, SERVO_X_MAX, SERVO_Y_MIN, SERVO_Y_MAX);
-  Serial.println(buf);
+  Serial.print(_("Idims:"));
+  Serial.print(SERVO_X_MIN);
+  Serial.print(',');
+  Serial.print(SERVO_X_MAX);
+  Serial.print(',');
+  Serial.print(SERVO_Y_MIN);
+  Serial.print(',');
+  Serial.println(SERVO_Y_MAX);
 
   servo_x.attach(SERVO_X_PIN);
   servo_y.attach(SERVO_Y_PIN);
@@ -53,7 +59,7 @@ bool move_x(int newpos, bool print_errors)
     {
       #if TC_DEBUG > 0
       if (print_errors)
-        println("Es1"); // invalid x pos
+        println(_("Es1")); // invalid x pos
       #endif
       return false;
     }
@@ -66,7 +72,7 @@ bool move_x(int newpos, bool print_errors)
     {
       #if TC_DEBUG > 0
       if (print_errors)
-        println("Es2"); // invalid x pos
+        println(_("Es2")); // invalid x pos
       #endif
       return false;
     }
@@ -75,8 +81,8 @@ bool move_x(int newpos, bool print_errors)
 
   x = newpos;
   servo_x.write(x);
-  sprintf(buf, "Ix: %d", x);
-  println(buf);
+  print(_("Ix: "));
+  println(x);
   return true;
 }
 
@@ -88,7 +94,7 @@ bool move_y(int newpos, bool print_errors)
     {
       #if TC_DEBUG > 0
       if (print_errors)
-        println("Es3"); // invalid y pos
+        println(_("Es3")); // invalid y pos
       #endif
       return false;
     }
@@ -101,7 +107,7 @@ bool move_y(int newpos, bool print_errors)
     {
       #if TC_DEBUG > 0
       if (print_errors)
-        println("Es4"); // invalid y pos
+        println(_("Es4")); // invalid y pos
       #endif
       return false;
     }
@@ -110,8 +116,8 @@ bool move_y(int newpos, bool print_errors)
 
   y = newpos;
   servo_y.write(y);
-  sprintf(buf, "Iy: %d", y);
-  println(buf);
+  print(_("Iy: "));
+  println(y);
   return true;
 }
 

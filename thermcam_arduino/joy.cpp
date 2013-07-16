@@ -43,7 +43,7 @@ void joy_init()
   int h, v;
   read_joystick(h, v);
   if (h > JOY_HORZ_CENTER + 10 || h < JOY_HORZ_CENTER - 10 || v > JOY_VERT_CENTER + 10 || v < JOY_VERT_CENTER - 10)
-    Serial.println("Ej1"); // joystick needs recalibration!
+    Serial.println(_("Ej1")); // joystick needs recalibration!
   JOY_HORZ_CENTER = h;
   JOY_VERT_CENTER = v;
 }
@@ -68,8 +68,12 @@ void read_joystick(int &h, int &h_scaled, int &v, int &v_scaled, bool &pressed)
  
   if (TC_DEBUG >= 2)
   {
-    sprintf(buf, "Ijp: %d %d %d", h, v, pressed); // joy prescale
-    Serial.println(buf);
+    Serial.print(_("Ijp: ")); // joy prescale
+    Serial.print(h);
+    Serial.print(' ');
+    Serial.print(v);
+    Serial.print(' ');
+    Serial.println(pressed);
   }
 
   if (h < JOY_HORZ_CENTER)

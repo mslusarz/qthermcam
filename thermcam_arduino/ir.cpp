@@ -77,7 +77,7 @@ enum ir_button infrared_any_button_pressed()
       #if TC_DEBUG > 0
       if (use_serial())
       {
-        Serial.println("Ei1 "); // unknown IR code
+        Serial.println(_("Ei1 ")); // unknown IR code
         Serial.println(val, HEX);
       }
       #endif

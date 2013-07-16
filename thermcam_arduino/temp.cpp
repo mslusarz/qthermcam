@@ -37,7 +37,7 @@ bool read_temp(enum sensor s, double *temp)
   r = Wire.endTransmission(false);
   if (r)
   {
-    print("Et1 "); // endTransmission failed
+    print(_("Et1 ")); // endTransmission failed
     println(r);
     return false;
   }
@@ -48,7 +48,7 @@ bool read_temp(enum sensor s, double *temp)
   int ret = Wire.requestFrom(SENSOR_SLAVE_ADDRESS, 3);
   if (ret != 3)
   {
-    print("Et2 "); // requestFrom returned 
+    print(_("Et2 ")); // requestFrom returned 
     println(ret);
     return false;
   }
@@ -63,7 +63,7 @@ bool read_temp(enum sensor s, double *temp)
     
   if (bytes[1] & 0x80)
   {
-    println("Et3"); // error bit set
+    println(_("Et3")); // error bit set
     return false;
   }
 

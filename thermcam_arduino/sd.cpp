@@ -44,7 +44,7 @@ void sd_init()
   
   sd_ok = SD.begin(SD_CS_PIN);
   if (!sd_ok)
-    Serial.println("Ed1"); // sd initialization failed!
+    Serial.println(_("Ed1")); // sd initialization failed!
 }
 
 static int ymin_, ymax_, xmin_, xmax_;
@@ -54,18 +54,23 @@ void sd_open_new_file(int ymin, int ymax, int xmin, int xmax)
   if (!sd_ok)
     return;
 
-  strcpy(file_name, "test.qtc");
+  strcpy(file_name, _("test.qtc"));
   file = SD.open(file_name, FILE_WRITE);
   if (!file)
   {
-    Serial.println("Ed3");
+    Serial.println(_("Ed3"));
     return;
   }
 
-  sprintf(buf, "ymin=\"%d\" xmin=\"%d\" ymax=\"%d\" xmax=\"%d\"", ymin, xmin, ymax, xmax);
-  file.print("<!DOCTYPE qtdc>\n<qtcd>\n <fov ");
-  file.print(buf);
-  file.print("/>\n <data>\n");
+  file.print(_("<!DOCTYPE qtcd>\n<qtcd>\n <fov ymin=\""));
+  file.print(ymin);
+  file.print(_("\" xmin=\""));
+  file.print(xmin);
+  file.print(_("\" ymax=\""));
+  file.print(ymax);
+  file.print(_("\" xmax=\""));
+  file.print(xmax);
+  file.print(_("\"/>\n <data>\n"));
   ymin_ = ymin;
   ymax_ = ymax;
   xmin_ = xmin;
@@ -79,20 +84,22 @@ void sd_dump_data(double *temps, int y, int x_start, int x_count)
 
   if (x_start == xmin_)
   {
-    sprintf(buf, "  <row y=\"%d\">\n", y);
-    file.print(buf);
+    file.print(_("  <row y=\""));
+    file.print(y);
+    file.print(_("\">\n"));
   }
 
   for (int i = 0; i < x_count; ++i)
   {
-    sprintf(buf, "   <col x=\"%d\" val=\"", x_start + i);
-    file.print(buf);
+    file.print(_("   <col x=\""));
+    file.print(x_start + i);
+    file.print(_("\" val=\""));
     file.print(temps[i]);
-    file.print("\"/>\n");
+    file.print(_("\"/>\n"));
   }
 
   if (x_start + x_count - 1 == xmax_)
-    file.print("  </row>\n");
+    file.print(_("  </row>\n"));
 }
 
 void sd_remove_file()
@@ -103,7 +110,7 @@ void sd_remove_file()
   file.close();
 
   if (!SD.remove(file_name))
-    Serial.println("Ed2"); // couldn't remove file
+    Serial.println(_("Ed2")); // couldn't remove file
 }
 
 void sd_close_file()
@@ -111,7 +118,7 @@ void sd_close_file()
   if (!sd_ok || !file)
     return;
 
-  file.print(" </data>\n</qtdc>\n");
+  file.print(_(" </data>\n</qtdc>\n"));
   file.close();
 }
 #endif
