@@ -54,7 +54,14 @@ void sd_open_new_file(int ymin, int ymax, int xmin, int xmax)
   if (!sd_ok)
     return;
 
-  strcpy(file_name, _("test.qtc"));
+  static int fno = 0;
+  const char *fmt = _("%d.qtc");
+  do
+  {
+    sprintf(file_name, fmt, ++fno);
+  }
+  while (SD.exists(file_name));
+
   file = SD.open(file_name, FILE_WRITE);
   if (!file)
   {
