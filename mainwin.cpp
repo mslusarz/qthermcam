@@ -464,7 +464,7 @@ void MainWin::prepareDataFileDialog()
 	if (!dataFileDialog)
 	{
 		dataFileDialog = new QFileDialog(this, tr("Choose file name"));
-		dataFileDialog->setNameFilter(tr("QThermCam data files (*.qtcd)"));
+		dataFileDialog->setNameFilter(tr("QThermCam data files (*.qtcd *.qtc)"));
 	}
 }
 
