@@ -92,6 +92,19 @@ void println(int i)
 }
 
 #define LASER_ENABLE_PIN 5
+static bool laser_is_on;
+
+static void laser_on()
+{
+  digitalWrite(LASER_ENABLE_PIN, HIGH);
+  laser_is_on = true;
+}
+
+static void laser_off()
+{
+  digitalWrite(LASER_ENABLE_PIN, LOW);
+  laser_is_on = false;
+}
 
 void setup()
 {
@@ -99,7 +112,7 @@ void setup()
   Serial.println(_("Is")); // setup
 
   pinMode(LASER_ENABLE_PIN, OUTPUT);
-  digitalWrite(LASER_ENABLE_PIN, HIGH);
+  laser_on();
 
   servo_init();
   joy_init();
@@ -108,6 +121,20 @@ void setup()
   sd_init();
   
   Serial.println(_("Isf")); // setup finished
+}
+
+static unsigned long last_laser_keep_on_time;
+static void keep_laser_on()
+{
+  if (!laser_is_on)
+    laser_on();
+  last_laser_keep_on_time = millis();
+}
+
+static void maybe_turn_laser_off()
+{
+  if (laser_is_on && millis() > last_laser_keep_on_time + 5000)
+    laser_off();
 }
 
 #define MAX_TEMPS 10
@@ -194,6 +221,8 @@ static void scan(int left, int top, int right, int bottom)
         aborted = joystick_button_pressed() || infrared_stop_button_pressed();
       }
     }
+
+    maybe_turn_laser_off();
   }
 
   if (aborted)
@@ -215,6 +244,8 @@ static char command[MAX_COMMAND_LENGTH];
 void loop()
 {
   int len = 0, offset = 0;
+  
+  maybe_turn_laser_off();
 
   if (JOY_ENABLED && !joy_suspended)
   {
@@ -233,7 +264,9 @@ void loop()
       print(' ');
       println(pressed);
       #endif
-  
+
+      keep_laser_on();  
+
       if (!pressed)
       {
         int sleep = 0;
@@ -303,22 +336,28 @@ void loop()
   switch (button)
   {
     case LEFT:
+      keep_laser_on();
       move_x(x - 10, false);
       break;
     case UP:
+      keep_laser_on();
       move_y(y + 10, false);
       break;
     case RIGHT:
+      keep_laser_on();
       move_x(x + 10, false);
       break;
     case DOWN:
+      keep_laser_on();
       move_y(y - 10, false);
       break;
     case LEFT_TOP:
+      keep_laser_on();
       left = x;
       top = y;
       break;
     case RIGHT_BOTTOM:
+      keep_laser_on();
       if (mode == MANUAL)
         println(_("E01")); // infrared start button is disabled in manual mode
       else
@@ -360,6 +399,10 @@ void loop()
     println(_("E04")); // too short command
     return;
   }
+
+  // if we are receiving commands by serial interface, it means
+  // we are powered by the USB port - let laser shine!
+  keep_laser_on();
 
   switch (command[0])
   {
