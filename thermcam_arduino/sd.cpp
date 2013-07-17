@@ -125,7 +125,7 @@ void sd_close_file()
   if (!sd_ok || !file)
     return;
 
-  file.print(_(" </data>\n</qtdc>\n"));
+  file.print(_(" </data>\n</qtcd>\n"));
   file.close();
 }
 #endif
