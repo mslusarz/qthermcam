@@ -38,7 +38,7 @@ static bool joy_suspended = false;
 static enum {AUTO, MANUAL} mode = AUTO;
 
 static char _buf[100];
-const char *pgm2ram(PROGMEM char *str)
+const char *pgm2ram(PROGMEM const char *str)
 {
   strcpy_P(_buf, str);
   return _buf;

@@ -20,7 +20,7 @@ void println(double f);
 
 #include <avr/pgmspace.h>
 #define _(s) pgm2ram(PSTR(s))
-const char *pgm2ram(PROGMEM char *str);
+const char *pgm2ram(PROGMEM const char *str);
 
 #endif
 
