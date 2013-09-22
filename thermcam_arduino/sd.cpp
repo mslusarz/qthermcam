@@ -23,6 +23,7 @@
 #define SD_CS_PIN 10
 #define SD_POWER_ENABLE_PIN 3
 #define SD_INPUT_ENABLE_PIN 7
+#define SD_POWER_PIN 1
 
 static File file;
 static bool sd_ok;
@@ -38,6 +39,25 @@ static void sd_on()
 {
   digitalWrite(SD_POWER_ENABLE_PIN, HIGH); // turns mosfet on
   digitalWrite(SD_INPUT_ENABLE_PIN, HIGH); // enables sck, mosi, cs pins (OE pins of 74HC125 buffer)
+  delay(100);
+
+  int voltage = analogRead(SD_POWER_PIN);
+  if (voltage < 2.9 * 1024 / 5) // according to the spec SD cards can operate at 2.7V - 3.6V
+  {
+    Serial.print(_("Ed0 ")); // voltage too low
+    Serial.print(voltage);
+    Serial.print(" ");
+    Serial.println(5.0 * voltage / 1024);
+    sd_off();
+    return;
+  }
+  if (voltage <= 3.2 * 1024 / 5)
+  {
+    Serial.print(_("Wd0 ")); // voltage low
+    Serial.print(voltage);
+    Serial.print(" ");
+    Serial.println(5.0 * voltage / 1024);
+  }
   
   // reinitialize SD object - otherwise .begin will fail
   SD = SDClass();
