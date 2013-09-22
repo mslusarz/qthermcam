@@ -23,7 +23,6 @@
 #define SD_CS_PIN 10
 #define SD_POWER_ENABLE_PIN 3
 #define SD_INPUT_ENABLE_PIN 7
-#define SD_POWER_PIN 1
 
 static File file;
 static bool sd_ok;
@@ -41,22 +40,18 @@ static void sd_on()
   digitalWrite(SD_INPUT_ENABLE_PIN, HIGH); // enables sck, mosi, cs pins (OE pins of 74HC125 buffer)
   delay(100);
 
-  int voltage = analogRead(SD_POWER_PIN);
-  if (voltage < 2.9 * 1024 / 5) // according to the spec SD cards can operate at 2.7V - 3.6V
+  int voltage = get_vreg_voltage100();
+  if (voltage < 290) // according to the spec SD cards can operate at 2.7V - 3.6V, cut at 2.90V
   {
     Serial.print(_("Ed0 ")); // voltage too low
-    Serial.print(voltage);
-    Serial.print(" ");
-    Serial.println(5.0 * voltage / 1024);
+    Serial.println(voltage / 100.0);
     sd_off();
     return;
   }
-  if (voltage <= 3.2 * 1024 / 5)
+  if (voltage <= 320) // 3.20V
   {
     Serial.print(_("Wd0 ")); // voltage low
-    Serial.print(voltage);
-    Serial.print(" ");
-    Serial.println(5.0 * voltage / 1024);
+    Serial.println(voltage / 100.0);
   }
   
   // reinitialize SD object - otherwise .begin will fail
@@ -80,11 +75,11 @@ void sd_init()
 
 static int ymin_, ymax_, xmin_, xmax_;
 
-void sd_open_new_file(int ymin, int ymax, int xmin, int xmax)
+bool sd_open_new_file(int ymin, int ymax, int xmin, int xmax)
 {
   sd_on();
   if (!sd_ok)
-    return;
+    return false;
 
   static int fno = 0;
   const char *fmt = _("%d.qtc");
@@ -99,7 +94,7 @@ void sd_open_new_file(int ymin, int ymax, int xmin, int xmax)
   {
     Serial.println(_("Ed3"));
     sd_off();
-    return;
+    return false;
   }
 
   file.print(_("<!DOCTYPE qtcd>\n<qtcd>\n <fov ymin=\""));
@@ -115,6 +110,8 @@ void sd_open_new_file(int ymin, int ymax, int xmin, int xmax)
   ymax_ = ymax;
   xmin_ = xmin;
   xmax_ = xmax;
+  
+  return true;
 }
 
 void sd_dump_data(double *temps, int y, int x_start, int x_count)

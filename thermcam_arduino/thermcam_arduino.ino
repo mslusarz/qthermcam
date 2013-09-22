@@ -120,6 +120,14 @@ void setup()
   temp_init();
   sd_init();
   
+  int v = get_vreg_voltage100();
+  if (v < 290)
+  {
+    Serial.print(_("Wsv ")); // voltage low
+    Serial.println(v / 100.0);
+    signal_error(4);
+  }
+
   Serial.println(_("Isf")); // setup finished
 }
 
@@ -135,6 +143,25 @@ static void maybe_turn_laser_off()
 {
   if (laser_is_on && millis() > last_laser_keep_on_time + 5000)
     laser_off();
+}
+
+#define VREG33_OUTPUT_PIN 1
+int get_vreg_voltage100()
+{
+  int voltage = analogRead(VREG33_OUTPUT_PIN);
+  return 100 * (5.0 * voltage / 1024);
+}
+
+static void signal_error(int num)
+{
+  pinMode(13, OUTPUT);
+  for (int i = 0; i < num; i++)
+  {
+    digitalWrite(13, 1);
+    delay(1000);
+    digitalWrite(13, 0);
+    delay(1000);
+  }
 }
 
 #define MAX_TEMPS 10
@@ -166,7 +193,9 @@ static void scan(int left, int top, int right, int bottom)
     left = right;
     right = tmp;
   }
-  sd_open_new_file(bottom, top, left, right);
+
+  if (!sd_open_new_file(bottom, top, left, right))
+    signal_error(5);
 
   for (int i = top; i >= bottom && !aborted; i--)
   {

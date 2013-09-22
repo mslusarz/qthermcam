@@ -22,5 +22,7 @@ void println(double f);
 #define _(s) pgm2ram(PSTR(s))
 const char *pgm2ram(PROGMEM const char *str);
 
+int get_vreg_voltage100();
+
 #endif
 
