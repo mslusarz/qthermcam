@@ -22,35 +22,47 @@
 
 #define SD_CS_PIN 10
 #define SD_POWER_ENABLE_PIN 3
-#define SD_INPUT_DISABLE_PIN 7
+#define SD_INPUT_ENABLE_PIN 7
 
 static File file;
 static bool sd_ok;
 static char file_name[13];
 
+static void sd_off()
+{
+  digitalWrite(SD_POWER_ENABLE_PIN, LOW); // turns mosfet off
+  digitalWrite(SD_INPUT_ENABLE_PIN, LOW); // disables sck, mosi, cs pins (OE pins of 74HC125 buffer)
+}
+
+static void sd_on()
+{
+  digitalWrite(SD_POWER_ENABLE_PIN, HIGH); // turns mosfet on
+  digitalWrite(SD_INPUT_ENABLE_PIN, HIGH); // enables sck, mosi, cs pins (OE pins of 74HC125 buffer)
+  
+  // reinitialize SD object - otherwise .begin will fail
+  SD = SDClass();
+  sd_ok = SD.begin(SD_CS_PIN);
+  if (!sd_ok)
+  {
+    Serial.println(_("Ed1")); // sd initialization failed!
+    sd_off();
+  }
+}
+
 void sd_init()
 {
   pinMode(SD_CS_PIN, OUTPUT);
   pinMode(SD_POWER_ENABLE_PIN, OUTPUT);
-  pinMode(SD_INPUT_DISABLE_PIN, OUTPUT);
+  pinMode(SD_INPUT_ENABLE_PIN, OUTPUT);
 
-  digitalWrite(SD_POWER_ENABLE_PIN, LOW);   // turns mosfet off
-  digitalWrite(SD_INPUT_DISABLE_PIN, HIGH); // disables sck, mosi, cs pins (OE pins of 74HC125 buffer)
-
-  delay(100);
-
-  digitalWrite(SD_POWER_ENABLE_PIN, HIGH);  // turns mosfet on
-  digitalWrite(SD_INPUT_DISABLE_PIN, LOW);  // enables sck, mosi, cs pins (OE pins of 74HC125 buffer)
-  
-  sd_ok = SD.begin(SD_CS_PIN);
-  if (!sd_ok)
-    Serial.println(_("Ed1")); // sd initialization failed!
+  sd_off();
 }
 
 static int ymin_, ymax_, xmin_, xmax_;
 
 void sd_open_new_file(int ymin, int ymax, int xmin, int xmax)
 {
+  sd_on();
   if (!sd_ok)
     return;
 
@@ -66,6 +78,7 @@ void sd_open_new_file(int ymin, int ymax, int xmin, int xmax)
   if (!file)
   {
     Serial.println(_("Ed3"));
+    sd_off();
     return;
   }
 
@@ -118,6 +131,7 @@ void sd_remove_file()
 
   if (!SD.remove(file_name))
     Serial.println(_("Ed2")); // couldn't remove file
+  sd_off();
 }
 
 void sd_close_file()
@@ -127,6 +141,7 @@ void sd_close_file()
 
   file.print(_(" </data>\n</qtcd>\n"));
   file.close();
+  sd_off();
 }
 #endif
 
