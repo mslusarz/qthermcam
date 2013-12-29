@@ -9,14 +9,15 @@
 
 bool use_serial();
 
-void print(const char *s);
-void print(char c);
-void print(int i);
-void print(double f);
+#define DECL_PRINT(type) \
+void print(type v); \
+void println(type v);
 
-void println(const char *s);
-void println(int i);
-void println(double f);
+DECL_PRINT(const char *);
+DECL_PRINT(char);
+DECL_PRINT(int);
+DECL_PRINT(double);
+DECL_PRINT(unsigned long);
 
 #include <avr/pgmspace.h>
 #define _(s) pgm2ram(PSTR(s))

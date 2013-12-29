@@ -49,47 +49,23 @@ bool use_serial()
   return mode == MANUAL || TC_DEBUG;
 }
 
-void print(const char *s)
-{
-  if (use_serial())
-    Serial.print(s);
+#define DEF_PRINT(type) \
+void print(type v) \
+{ \
+  if (use_serial()) \
+    Serial.print(v); \
+} \
+void println(type v) \
+{ \
+  if (use_serial()) \
+    Serial.println(v); \
 }
 
-void print(char c)
-{
-  if (use_serial())
-    Serial.print(c);
-}
-
-void print(double f)
-{
-  if (use_serial())
-    Serial.print(f);
-}
-
-void print(int i)
-{
-  if (use_serial())
-    Serial.print(i);
-}
-
-void println(const char *s)
-{
-  if (use_serial())
-    Serial.println(s);
-}
-
-void println(double f)
-{
-  if (use_serial())
-    Serial.println(f);
-}
-
-void println(int i)
-{
-  if (use_serial())
-    Serial.println(i);
-}
+DEF_PRINT(const char *);
+DEF_PRINT(char);
+DEF_PRINT(int);
+DEF_PRINT(double);
+DEF_PRINT(unsigned long);
 
 #define LASER_ENABLE_PIN 5
 static bool laser_is_on;
