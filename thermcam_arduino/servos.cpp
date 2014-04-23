@@ -22,7 +22,7 @@
 
 #define SERVO_X_PIN 9
 #define SERVO_X_MIN 30
-#define SERVO_X_MAX 170
+#define SERVO_X_MAX 180
 
 #define SERVO_Y_PIN 8
 #define SERVO_Y_MIN 30

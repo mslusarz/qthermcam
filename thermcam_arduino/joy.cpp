@@ -25,15 +25,15 @@ static void read_joystick(int &h, int &v);
 #define JOY_HORZ_PIN 2
 #define JOY_VERT_PIN 3
 
-#define JOY_HORZ_LEFT   0
+#define JOY_HORZ_LEFT   1023
 #define JOY_HORZ_DEFAULT_CENTER 491
 static int JOY_HORZ_CENTER = JOY_HORZ_DEFAULT_CENTER;
-#define JOY_HORZ_RIGHT  1008
+#define JOY_HORZ_RIGHT  0
 
-#define JOY_VERT_UP     95
+#define JOY_VERT_UP     1023
 #define JOY_VERT_DEFAULT_CENTER 547
 static int JOY_VERT_CENTER = JOY_VERT_DEFAULT_CENTER;
-#define JOY_VERT_DOWN   1023
+#define JOY_VERT_DOWN   0
 
 void joy_init()
 {
