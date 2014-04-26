@@ -405,8 +405,6 @@ void loop()
     return;
   }
 
-  // if we are receiving commands by serial interface, it means
-  // we are powered by the USB port - let laser shine!
   keep_laser_on();
 
   switch (command[0])
