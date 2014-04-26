@@ -251,6 +251,7 @@ void loop()
   int len = 0, offset = 0;
   
   maybe_turn_laser_off();
+  maybe_update_servos();
 
   if (JOY_ENABLED && !joy_suspended)
   {
@@ -342,19 +343,19 @@ void loop()
   {
     case LEFT:
       keep_laser_on();
-      move_x(x - 10, false);
+      move_x(x - 10, false, true);
       break;
     case UP:
       keep_laser_on();
-      move_y(y + 10, false);
+      move_y(y + 10, false, true);
       break;
     case RIGHT:
       keep_laser_on();
-      move_x(x + 10, false);
+      move_x(x + 10, false, true);
       break;
     case DOWN:
       keep_laser_on();
-      move_y(y - 10, false);
+      move_y(y - 10, false, true);
       break;
     case LEFT_TOP:
       keep_laser_on();

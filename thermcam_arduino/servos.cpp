@@ -34,6 +34,10 @@ static Servo servo_y;
 int x = 90;
 int y = 90;
 
+static int targetx, targety;
+static bool update;
+static unsigned long next_update_time;
+
 void servo_init()
 {
   Serial.print(_("Idims:"));
@@ -45,13 +49,17 @@ void servo_init()
   Serial.print(',');
   Serial.println(SERVO_Y_MAX);
 
+  update = false;
+  targetx = x;
+  targety = y;
+
   servo_x.attach(SERVO_X_PIN);
   servo_y.attach(SERVO_Y_PIN);
   servo_x.write(x);
   servo_y.write(y);
 }
 
-bool move_x(int newpos, bool print_errors)
+bool move_x(int newpos, bool print_errors, bool smooth)
 {
   if (newpos < SERVO_X_MIN)
   {
@@ -79,14 +87,24 @@ bool move_x(int newpos, bool print_errors)
     newpos = SERVO_X_MAX;
   }
 
-  x = newpos;
-  servo_x.write(x);
+  if (smooth)
+  {
+    targetx = newpos;
+    update = true;
+    next_update_time = millis();
+  }
+  else
+  {
+    x = newpos;
+    targetx = x;
+    servo_x.write(x);
+  }
   print(_("Ix: "));
   println(x);
   return true;
 }
 
-bool move_y(int newpos, bool print_errors)
+bool move_y(int newpos, bool print_errors, bool smooth)
 {
   if (newpos < SERVO_Y_MIN)
   {
@@ -114,11 +132,54 @@ bool move_y(int newpos, bool print_errors)
     newpos = SERVO_Y_MAX;
   }
 
-  y = newpos;
-  servo_y.write(y);
+  if (smooth)
+  {
+    targety = newpos;
+    update = true;
+    next_update_time = millis();
+  }
+  else
+  {
+    y = newpos;
+    targety = y;
+    servo_y.write(y);
+  }
+
   print(_("Iy: "));
   println(y);
   return true;
+}
+
+void maybe_update_servos()
+{
+  if (!update)
+    return;
+  if (millis() < next_update_time)
+    return;
+
+  next_update_time += 10;
+  update = false;
+  if (targetx != x)
+  {
+    if (targetx > x)
+      x++;
+    else
+      x--;
+
+    servo_x.write(x);
+    update = true;
+  }
+
+  if (targety != y)
+  {
+    if (targety > y)
+      y++;
+    else
+      y--;
+
+    servo_y.write(y);
+    update = true;
+  }
 }
 
 /* Servos need to be refreshed every 20ms, so servo library uses hardware timer (timer1 on
