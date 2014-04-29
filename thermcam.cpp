@@ -154,7 +154,7 @@ bool ThermCam::sendCommand_moveX(int newPos)
 		newPos = xmin;
 	if (newPos > xmax)
 		newPos = xmax;
-	return sendCommand(QString("px%1!").arg(newPos).toAscii());
+	return sendCommand(QString("px%1!").arg(newPos).toLatin1());
 }
 
 bool ThermCam::sendCommand_moveY(int newPos)
@@ -163,7 +163,7 @@ bool ThermCam::sendCommand_moveY(int newPos)
 		newPos = ymin;
 	if (newPos > ymax)
 		newPos = ymax;
-	return sendCommand(QString("py%1!").arg(newPos).toAscii());
+	return sendCommand(QString("py%1!").arg(newPos).toLatin1());
 }
 
 void ThermCam::fdActivated(int fd)

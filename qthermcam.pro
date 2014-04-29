@@ -1,9 +1,8 @@
 TEMPLATE = app
-TARGET = 
 DEPENDPATH += .
 INCLUDEPATH += .
 CONFIG += debug
-QT += xml
+QT += xml widgets
 
 OBJECTS_DIR=.tmp
 MOC_DIR=.tmp
