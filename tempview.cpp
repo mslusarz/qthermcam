@@ -126,8 +126,8 @@ void TempView::refreshView()
 		int newHeight = qMax(dataHeight, height() - 10);
 
 		// round down to the nearest multiple of data[Width|Height]
-		newWidth = int(newWidth / dataWidth) * dataWidth;
-		newHeight = int(newHeight / dataHeight) * dataHeight;
+		newWidth = (newWidth / dataWidth) * dataWidth;
+		newHeight = (newHeight / dataHeight) * dataHeight;
 
 		tempImage = cacheImage->scaled(newWidth, newHeight, Qt::KeepAspectRatio/*, Qt::SmoothTransformation*/);
 	}
